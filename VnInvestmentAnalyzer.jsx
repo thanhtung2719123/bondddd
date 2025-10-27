@@ -1131,8 +1131,10 @@ Please provide a clear, educational explanation to help understand the calculati
                                   <LineChart>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis 
+                                      type="number"
                                       dataKey="year" 
                                       domain={[0, 10]}
+                                      interval="preserveStartEnd"
                                       label={{ value: 'Year', position: 'insideBottom', offset: -5 }}
                                     />
                                     <YAxis 
@@ -1147,13 +1149,14 @@ Please provide a clear, educational explanation to help understand the calculati
                                       <Line 
                                         key={idx}
                                         data={path}
-                                        type="monotone" 
+                                        type="linear" 
                                         dataKey="value" 
                                         stroke="#10b981" 
                                         strokeWidth={0.5}
                                         opacity={0.2}
                                         dot={false}
                                         isAnimationActive={false}
+                                        connectNulls={false}
                                       />
                                     ))}
                                     <Line 
@@ -1174,8 +1177,10 @@ Please provide a clear, educational explanation to help understand the calculati
                                   <LineChart>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis 
+                                      type="number"
                                       dataKey="year" 
                                       domain={[0, 10]}
+                                      interval="preserveStartEnd"
                                       label={{ value: 'Year', position: 'insideBottom', offset: -5 }}
                                     />
                                     <YAxis 
@@ -1190,13 +1195,14 @@ Please provide a clear, educational explanation to help understand the calculati
                                       <Line 
                                         key={idx}
                                         data={path}
-                                        type="monotone" 
+                                        type="linear" 
                                         dataKey="value" 
                                         stroke="#3b82f6" 
                                         strokeWidth={0.5}
                                         opacity={0.2}
                                         dot={false}
                                         isAnimationActive={false}
+                                        connectNulls={false}
                                       />
                                     ))}
                                     <Line 
