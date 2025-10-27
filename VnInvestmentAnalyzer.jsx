@@ -392,25 +392,22 @@ const VnInvestmentAnalyzer = () => {
       
       // First, collect all paths for visualization
       for (let i = 0; i < Math.min(trials, pathsToShow); i++) {
-        const optionC_path = [];
-        const portfolio_path = [];
+        const optionC_path = [{ year: 0, value: initialInvestment }];
+        const portfolio_path = [{ year: 0, value: initialInvestment }];
         let optionC_value = initialInvestment;
         let portfolio_value = initialInvestment;
         
-        for (let year = 0; year <= years; year++) {
-          if (year === 0) {
-            optionC_path.push({ year, value: initialInvestment });
-            portfolio_path.push({ year, value: initialInvestment });
-          } else {
-            const optionC_return = randomNormal(optionC_mean, optionC_stdDev);
-            const portfolio_return = randomNormal(portfolio_mean, portfolio_stdDev);
-            
-            optionC_value *= (1 + optionC_return);
-            portfolio_value *= (1 + portfolio_return);
-            
-            optionC_path.push({ year, value: optionC_value });
-            portfolio_path.push({ year, value: portfolio_value });
-          }
+        for (let year = 1; year <= years; year++) {
+          // Generate DIFFERENT random returns for each path and year
+          const optionC_return = randomNormal(optionC_mean, optionC_stdDev);
+          const portfolio_return = randomNormal(portfolio_mean, portfolio_stdDev);
+          
+          // Compound the returns
+          optionC_value *= (1 + optionC_return);
+          portfolio_value *= (1 + portfolio_return);
+          
+          optionC_path.push({ year, value: optionC_value });
+          portfolio_path.push({ year, value: portfolio_value });
         }
         
         optionC_paths.push(optionC_path);
@@ -419,7 +416,7 @@ const VnInvestmentAnalyzer = () => {
         portfolio_results.push(portfolio_value);
       }
       
-      // Now run remaining trials for statistics
+      // Now run remaining trials for statistics (only final value matters)
       for (let i = pathsToShow; i < trials; i++) {
         let optionC_value = initialInvestment;
         let portfolio_value = initialInvestment;
