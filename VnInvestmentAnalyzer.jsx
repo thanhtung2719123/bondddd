@@ -788,6 +788,94 @@ Please provide a clear, educational explanation to help understand the calculati
                   </p>
                 </AlertDescription>
               </Alert>
+
+              {/* Question 1: Can individuals buy bonds in Vietnam? */}
+              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900">Question 1: Can Individual Investors Buy Bonds in Vietnam?</CardTitle>
+                  <CardDescription className="text-gray-700">
+                    Detailed regulatory information about bond purchasing in the Vietnamese market
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="prose max-w-none space-y-6">
+                  <p className="text-lg text-gray-800">
+                    Yes, individual (retail) investors can buy bonds in Vietnam, but there is a <strong>very important distinction between Government Bonds and Corporate Bonds</strong>.
+                  </p>
+
+                  {/* Government Bonds Section */}
+                  <div className="bg-white p-6 rounded-lg border border-green-200">
+                    <h5 className="text-xl font-bold text-blue-600 mb-3">1. Government Bonds (e.g., Option A)</h5>
+                    <div className="space-y-3">
+                      <p><strong>Can individuals buy?</strong> <span className="text-green-700 text-lg font-semibold">✅ Yes</span></p>
+                      <p><strong>Description:</strong> These are bonds issued by the Vietnam Ministry of Finance (via the State Treasury) to fund national projects. They are considered the safest investment in Vietnam as they are backed by the full faith and credit of the government.</p>
+                      <div>
+                        <p><strong>How to Buy:</strong></p>
+                        <ul className="list-disc ml-6 space-y-1">
+                          <li><strong>Primary Market:</strong> Individuals typically cannot buy directly at auctions. This is reserved for "bidding members" like large banks and securities firms.</li>
+                          <li><strong>Secondary Market (Most common):</strong> An individual can easily buy government bonds that are already in circulation.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p><strong>Where to Buy:</strong></p>
+                        <ul className="list-disc ml-6 space-y-1">
+                          <li><strong>Securities Companies:</strong> Firms like SSI, VNDirect, Mirae Asset, ACBS, etc., offer government bond trading on their platforms.</li>
+                          <li><strong>Commercial Banks:</strong> Many banks like MSB, BIDV, and Vietcombank facilitate government bond purchases for their individual clients.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Corporate Bonds Section */}
+                  <div className="bg-white p-6 rounded-lg border border-purple-200">
+                    <h5 className="text-xl font-bold text-purple-600 mb-3">2. Corporate Bonds (e.g., Option B)</h5>
+                    <div className="space-y-3">
+                      <p><strong>Can individuals buy?</strong> <span className="text-red-700 text-lg font-semibold">⚠️ It is highly restricted</span></p>
+                      <p><strong>Description:</strong> These are issued by private companies (like VPBank) to raise capital. They offer higher yields because they carry higher credit risk (the risk the company could default).</p>
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                        <p><strong>The "Professional Investor" Rule:</strong></p>
+                        <p className="mt-2">
+                          Due to regulations (primarily <strong>Decree 153/2020/ND-CP</strong> and its amendments like <strong>Decree 65/2022/ND-CP</strong>), 
+                          the direct purchase of privately placed corporate bonds is restricted to <strong>"Professional Securities Investors"</strong> only.
+                        </p>
+                        <p className="mt-2"><strong>To qualify as a "Professional Investor," an individual must meet strict criteria, such as:</strong></p>
+                        <ul className="list-disc ml-6 mt-2 space-y-1">
+                          <li>Holding a securities portfolio of at least <strong>₫2 billion</strong> (avg. value over 180 days), OR</li>
+                          <li>Having a recent annual taxable income of at least <strong>₫1 billion</strong></li>
+                        </ul>
+                      </div>
+                      <p className="font-semibold text-purple-700">
+                        <strong>Implication for Ms. An:</strong> A typical 30-year-old investor like Ms. An is unlikely to qualify as a "professional investor." 
+                        Therefore, she cannot directly buy Option B (the VPBank corporate bond).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bond Funds Section */}
+                  <div className="bg-white p-6 rounded-lg border border-green-200">
+                    <h5 className="text-xl font-bold text-green-600 mb-3">3. Bond Funds (e.g., Option C)</h5>
+                    <div className="space-y-3">
+                      <p><strong>Can individuals buy?</strong> <span className="text-green-700 text-lg font-semibold">✅ Yes</span></p>
+                      <p><strong>Description:</strong> This is the primary way a regular individual investor can gain exposure to a diversified portfolio of corporate and government bonds. A fund (like the TCBF in the case study) pools money from many investors and has a professional manager buy and sell bonds.</p>
+                      <div>
+                        <p><strong>How to Buy:</strong></p>
+                        <ul className="list-disc ml-6 space-y-1">
+                          <li><strong>Fund Management Companies:</strong> Directly from companies like VinaCapital, Dragon Capital, Techcom Capital (TCAM), etc.</li>
+                          <li><strong>Banks & Brokers:</strong> Through distribution partners, such as HSBC, BIDV, or securities apps (like TCInvest for Techcom).</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-blue-600 text-white p-6 rounded-lg">
+                    <h5 className="text-xl font-bold mb-3">Summary for the Case Study</h5>
+                    <p className="text-lg">
+                      Based on this, Ms. An can directly buy <strong>Option A (Government Bond)</strong> and <strong>Option C (Fund)</strong>, 
+                      but she almost certainly <strong>cannot buy Option B (Corporate Bond)</strong> directly.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
