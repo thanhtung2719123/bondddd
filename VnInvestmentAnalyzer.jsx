@@ -29,19 +29,20 @@ function vasicekRate(r0, a, b, sigma, dt) {
 
 // Calculate Bond Duration (Macaulay Duration)
 function calculateDuration(couponRate, maturity, ytm, frequency = 1) {
-  const coupon = couponRate / frequency;
+  const faceValue = 100;
+  const couponPayment = (couponRate * faceValue) / frequency; // Actual cash flow per period
   const periods = maturity * frequency;
   let duration = 0;
   let price = 0;
   
   for (let t = 1; t <= periods; t++) {
-    const pv = coupon / Math.pow(1 + ytm / frequency, t);
+    const pv = couponPayment / Math.pow(1 + ytm / frequency, t);
     duration += (t / frequency) * pv;
     price += pv;
   }
   
   // Add principal repayment
-  const principalPV = 100 / Math.pow(1 + ytm / frequency, periods);
+  const principalPV = faceValue / Math.pow(1 + ytm / frequency, periods);
   duration += (maturity) * principalPV;
   price += principalPV;
   
@@ -55,19 +56,20 @@ function calculateModifiedDuration(macaulayDuration, ytm, frequency = 1) {
 
 // Calculate Bond Convexity
 function calculateConvexity(couponRate, maturity, ytm, frequency = 1) {
-  const coupon = couponRate / frequency;
+  const faceValue = 100;
+  const couponPayment = (couponRate * faceValue) / frequency; // Actual cash flow per period
   const periods = maturity * frequency;
   let convexity = 0;
   let price = 0;
   
   for (let t = 1; t <= periods; t++) {
-    const pv = coupon / Math.pow(1 + ytm / frequency, t);
+    const pv = couponPayment / Math.pow(1 + ytm / frequency, t);
     convexity += (t * (t + 1)) * pv / Math.pow(frequency, 2);
     price += pv;
   }
   
   // Add principal repayment
-  const principalPV = 100 / Math.pow(1 + ytm / frequency, periods);
+  const principalPV = faceValue / Math.pow(1 + ytm / frequency, periods);
   convexity += (periods * (periods + 1)) * principalPV / Math.pow(frequency, 2);
   price += principalPV;
   
@@ -1364,21 +1366,51 @@ Please provide a clear, educational explanation to help understand the calculati
                   </ResponsiveContainer>
                   <div className="mt-6 grid md:grid-cols-3 gap-4">
                     <div className="p-4 bg-blue-50 rounded-lg text-center">
-                      <h6 className="font-semibold text-blue-900">Option A</h6>
+                      <h6 className="font-semibold text-blue-900">Option A (Gov Bond)</h6>
                       <p className="text-3xl font-bold text-blue-600 my-2">{bondAnalytics.optionA.convexity.toFixed(2)}</p>
-                      <p className="text-xs text-blue-700">Higher convexity = Better protection against rate changes</p>
+                      <p className="text-xs text-blue-700">Higher convexity = Better protection</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        2% yield ↑ → convexity adds +{(0.5 * bondAnalytics.optionA.convexity * 0.04).toFixed(2)}% to price
+                      </p>
                     </div>
                     <div className="p-4 bg-purple-50 rounded-lg text-center">
-                      <h6 className="font-semibold text-purple-900">Option B</h6>
+                      <h6 className="font-semibold text-purple-900">Option B (Corp Bond)</h6>
                       <p className="text-3xl font-bold text-purple-600 my-2">{bondAnalytics.optionB.convexity.toFixed(2)}</p>
-                      <p className="text-xs text-purple-700">Higher convexity = Better protection against rate changes</p>
+                      <p className="text-xs text-purple-700">Higher convexity = Better protection</p>
+                      <p className="text-xs text-purple-600 mt-1">
+                        2% yield ↑ → convexity adds +{(0.5 * bondAnalytics.optionB.convexity * 0.04).toFixed(2)}% to price
+                      </p>
                     </div>
                     <div className="p-4 bg-green-50 rounded-lg text-center">
-                      <h6 className="font-semibold text-green-900">Option C</h6>
+                      <h6 className="font-semibold text-green-900">Option C (Fund)</h6>
                       <p className="text-3xl font-bold text-green-600 my-2">{bondAnalytics.optionC.convexity.toFixed(2)}</p>
-                      <p className="text-xs text-green-700">Higher convexity = Better protection against rate changes</p>
+                      <p className="text-xs text-green-700">Higher convexity = Better protection</p>
+                      <p className="text-xs text-green-600 mt-1">
+                        2% yield ↑ → convexity adds +{(0.5 * bondAnalytics.optionC.convexity * 0.04).toFixed(2)}% to price
+                      </p>
                     </div>
                   </div>
+                  
+                  <Alert className="mt-6">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>What is Convexity?</AlertTitle>
+                    <AlertDescription>
+                      <p className="text-sm mt-2">
+                        <strong>Convexity</strong> measures how the duration of a bond changes as interest rates change. It's the "curvature" in the price-yield relationship:
+                      </p>
+                      <ul className="text-sm mt-2 space-y-1 ml-4">
+                        <li>• <strong>Higher convexity is better</strong>: Your bond gains more when rates fall and loses less when rates rise</li>
+                        <li>• <strong>Formula</strong>: Price Change ≈ -Duration × ΔY + ½ × Convexity × (ΔY)²</li>
+                        <li>• <strong>Longer maturity bonds</strong> typically have higher convexity (Option A)</li>
+                        <li>• <strong>Lower coupon bonds</strong> also tend to have higher convexity</li>
+                      </ul>
+                      <p className="text-sm mt-2 font-medium">
+                        Example: If yields rise 2%, Option A's duration says price falls {bondAnalytics.optionA.modifiedDuration.toFixed(2)}%, 
+                        but convexity adds back +{(0.5 * bondAnalytics.optionA.convexity * 0.04).toFixed(2)}%, 
+                        so net change is {(-bondAnalytics.optionA.modifiedDuration * 0.02 + 0.5 * bondAnalytics.optionA.convexity * 0.0004).toFixed(2)}%.
+                      </p>
+                    </AlertDescription>
+                  </Alert>
                 </CardContent>
               </Card>
 
@@ -1440,6 +1472,47 @@ Please provide a clear, educational explanation to help understand the calculati
                       </ul>
                     </AlertDescription>
                   </Alert>
+                </CardContent>
+              </Card>
+
+              {/* Input Verification Card */}
+              <Card className="bg-gradient-to-br from-amber-50 to-orange-50">
+                <CardHeader>
+                  <CardTitle className="text-lg">📋 Calculation Inputs Verification</CardTitle>
+                  <CardDescription>
+                    Bond parameters used for Duration and Convexity calculations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-2">
+                      <h6 className="font-bold text-blue-900">Option A - Gov Bond</h6>
+                      <p>• Face Value: ₫100</p>
+                      <p>• Coupon Rate: <strong>4.8% annually</strong></p>
+                      <p>• Coupon Payment: ₫{(0.048 * 100).toFixed(2)}/year</p>
+                      <p>• Maturity: <strong>10 years</strong></p>
+                      <p>• YTM: <strong>5.21%</strong></p>
+                      <p>• Payment Frequency: Annual (1×/year)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h6 className="font-bold text-purple-900">Option B - Corp Bond</h6>
+                      <p>• Face Value: ₫100</p>
+                      <p>• Coupon Rate: <strong>8.0% annually</strong></p>
+                      <p>• Coupon Payment: ₫{(0.08 * 100 / 2).toFixed(2)}/6mo</p>
+                      <p>• Maturity: <strong>7 years</strong></p>
+                      <p>• YTM: <strong>7.72%</strong></p>
+                      <p>• Payment Frequency: Semi-annual (2×/year)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h6 className="font-bold text-green-900">Option C - Fund</h6>
+                      <p>• Type: Balanced Fund (80/20)</p>
+                      <p>• Expected Return: <strong>9.0%</strong></p>
+                      <p>• Estimated Duration: <strong>4 years</strong></p>
+                      <p>• Estimated Convexity: <strong>20</strong></p>
+                      <p>• Note: Fund metrics are approximations</p>
+                      <p className="text-xs text-gray-600">Based on 80% bond allocation</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
