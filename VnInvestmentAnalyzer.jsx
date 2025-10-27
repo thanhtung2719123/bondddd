@@ -368,7 +368,7 @@ const VnInvestmentAnalyzer = () => {
     { name: 'Fund (C)', value: portfolioAllocation.optionC, fill: '#10b981' },
   ];
 
-  // Monte Carlo Simulation
+  // Monte Carlo Simulation with path tracking
   const runMonteCarloSimulation = () => {
     setIsSimulating(true);
     
@@ -376,6 +376,7 @@ const VnInvestmentAnalyzer = () => {
     setTimeout(() => {
       const trials = 10000;
       const years = 10;
+      const pathsToShow = 100; // Show 100 sample paths for visualization
       
       // Parameters
       const optionC_mean = 0.09; // 9%
@@ -386,22 +387,37 @@ const VnInvestmentAnalyzer = () => {
       
       const optionC_results = [];
       const portfolio_results = [];
+      const optionC_paths = [];
+      const portfolio_paths = [];
       
       for (let i = 0; i < trials; i++) {
         // Generate random annual returns for 10 years and compound
         let optionC_value = initialInvestment;
         let portfolio_value = initialInvestment;
         
-        for (let year = 0; year < years; year++) {
+        const optionC_path = [{ year: 0, value: initialInvestment }];
+        const portfolio_path = [{ year: 0, value: initialInvestment }];
+        
+        for (let year = 1; year <= years; year++) {
           const optionC_return = randomNormal(optionC_mean, optionC_stdDev);
           const portfolio_return = randomNormal(portfolio_mean, portfolio_stdDev);
           
           optionC_value *= (1 + optionC_return);
           portfolio_value *= (1 + portfolio_return);
+          
+          if (i < pathsToShow) {
+            optionC_path.push({ year, value: optionC_value });
+            portfolio_path.push({ year, value: portfolio_value });
+          }
         }
         
         optionC_results.push(optionC_value);
         portfolio_results.push(portfolio_value);
+        
+        if (i < pathsToShow) {
+          optionC_paths.push(optionC_path);
+          portfolio_paths.push(portfolio_path);
+        }
       }
       
       // Sort results
@@ -437,19 +453,32 @@ const VnInvestmentAnalyzer = () => {
       const optionC_histogram = createHistogram(optionC_results, 'Option C', '#10b981');
       const portfolio_histogram = createHistogram(portfolio_results, 'Portfolio', '#3b82f6');
       
+      // Create average path data for line chart
+      const avgPathData = [];
+      for (let year = 0; year <= years; year++) {
+        avgPathData.push({
+          year,
+          optionC_expected: initialInvestment * Math.pow(1 + optionC_mean, year),
+          portfolio_expected: initialInvestment * Math.pow(1 + portfolio_mean, year),
+        });
+      }
+      
       setSimulationResults({
         optionC: {
           p5: getPercentile(optionC_results, 0.05),
           p50: getPercentile(optionC_results, 0.50),
           p95: getPercentile(optionC_results, 0.95),
           histogram: optionC_histogram,
+          paths: optionC_paths,
         },
         portfolio: {
           p5: getPercentile(portfolio_results, 0.05),
           p50: getPercentile(portfolio_results, 0.50),
           p95: getPercentile(portfolio_results, 0.95),
           histogram: portfolio_histogram,
+          paths: portfolio_paths,
         },
+        avgPathData,
       });
       
       setIsSimulating(false);
@@ -590,9 +619,6 @@ Please provide a clear, educational explanation to help understand the calculati
             </TabsTrigger>
             <TabsTrigger value="monte-carlo" icon={TrendingUp}>
               Monte Carlo
-            </TabsTrigger>
-            <TabsTrigger value="analytics" icon={AlertCircle}>
-              Bond Analytics
             </TabsTrigger>
           </TabsList>
 
@@ -772,6 +798,7 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableHead>Real Return (CAGR)</TableHead>
                         <TableHead>Current Yield</TableHead>
                         <TableHead>YTM</TableHead>
+                        <TableHead>Duration</TableHead>
                         <TableHead>Risk Level</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -787,6 +814,9 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableCell>{investmentData.optionA.realReturn}%</TableCell>
                         <TableCell>{investmentData.optionA.currentYield}%</TableCell>
                         <TableCell>{investmentData.optionA.ytm}%</TableCell>
+                        <TableCell className="font-semibold text-blue-600">
+                          {bondAnalytics.optionA.macaulayDuration.toFixed(2)} yrs
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
                             {investmentData.optionA.risk}
@@ -804,6 +834,9 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableCell>{investmentData.optionB.realReturn}%</TableCell>
                         <TableCell>{investmentData.optionB.currentYield}%</TableCell>
                         <TableCell>{investmentData.optionB.ytm}%</TableCell>
+                        <TableCell className="font-semibold text-purple-600">
+                          {bondAnalytics.optionB.macaulayDuration.toFixed(2)} yrs
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
                             {investmentData.optionB.risk}
@@ -821,6 +854,9 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableCell>{investmentData.optionC.realReturn}%</TableCell>
                         <TableCell>{investmentData.optionC.currentYield}%</TableCell>
                         <TableCell>{investmentData.optionC.ytm}%</TableCell>
+                        <TableCell className="font-semibold text-green-600">
+                          {bondAnalytics.optionC.macaulayDuration.toFixed(2)} yrs
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
                             {investmentData.optionC.risk}
@@ -1067,6 +1103,109 @@ Please provide a clear, educational explanation to help understand the calculati
 
                     {simulationResults && (
                       <>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Monte Carlo Simulation Paths</CardTitle>
+                            <CardDescription>
+                              100 sample paths from 10,000 simulations showing possible 10-year trajectories
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid md:grid-cols-2 gap-6">
+                              <div>
+                                <h6 className="font-semibold text-sm mb-3 text-center text-green-600">Option C (Fund) - Sample Paths</h6>
+                                <ResponsiveContainer width="100%" height={350}>
+                                  <LineChart>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis 
+                                      dataKey="year" 
+                                      domain={[0, 10]}
+                                      label={{ value: 'Year', position: 'insideBottom', offset: -5 }}
+                                    />
+                                    <YAxis 
+                                      tickFormatter={(value) => `₫${(value / 1000000).toFixed(0)}M`}
+                                      label={{ value: 'Portfolio Value', angle: -90, position: 'insideLeft' }}
+                                    />
+                                    <Tooltip 
+                                      formatter={(value) => formatCurrency(value)}
+                                      labelFormatter={(value) => `Year ${value}`}
+                                    />
+                                    {simulationResults.optionC.paths.map((path, idx) => (
+                                      <Line 
+                                        key={idx}
+                                        data={path}
+                                        type="monotone" 
+                                        dataKey="value" 
+                                        stroke="#10b981" 
+                                        strokeWidth={0.5}
+                                        opacity={0.2}
+                                        dot={false}
+                                        isAnimationActive={false}
+                                      />
+                                    ))}
+                                    <Line 
+                                      data={simulationResults.avgPathData}
+                                      type="monotone" 
+                                      dataKey="optionC_expected" 
+                                      stroke="#059669" 
+                                      strokeWidth={3}
+                                      dot={false}
+                                      name="Expected Path"
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                              <div>
+                                <h6 className="font-semibold text-sm mb-3 text-center text-blue-600">Portfolio - Sample Paths</h6>
+                                <ResponsiveContainer width="100%" height={350}>
+                                  <LineChart>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis 
+                                      dataKey="year" 
+                                      domain={[0, 10]}
+                                      label={{ value: 'Year', position: 'insideBottom', offset: -5 }}
+                                    />
+                                    <YAxis 
+                                      tickFormatter={(value) => `₫${(value / 1000000).toFixed(0)}M`}
+                                      label={{ value: 'Portfolio Value', angle: -90, position: 'insideLeft' }}
+                                    />
+                                    <Tooltip 
+                                      formatter={(value) => formatCurrency(value)}
+                                      labelFormatter={(value) => `Year ${value}`}
+                                    />
+                                    {simulationResults.portfolio.paths.map((path, idx) => (
+                                      <Line 
+                                        key={idx}
+                                        data={path}
+                                        type="monotone" 
+                                        dataKey="value" 
+                                        stroke="#3b82f6" 
+                                        strokeWidth={0.5}
+                                        opacity={0.2}
+                                        dot={false}
+                                        isAnimationActive={false}
+                                      />
+                                    ))}
+                                    <Line 
+                                      data={simulationResults.avgPathData}
+                                      type="monotone" 
+                                      dataKey="portfolio_expected" 
+                                      stroke="#1d4ed8" 
+                                      strokeWidth={3}
+                                      dot={false}
+                                      name="Expected Path"
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-4 text-center">
+                              Each thin line represents one possible 10-year outcome. The thick line shows the expected (mean) path. 
+                              Notice how the Portfolio paths are tighter (less spread) than Option C, demonstrating lower volatility.
+                            </p>
+                          </CardContent>
+                        </Card>
+
                         <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
                           <CardHeader>
                             <CardTitle className="text-lg">Simulation Results</CardTitle>
@@ -1260,401 +1399,132 @@ Please provide a clear, educational explanation to help understand the calculati
               </Card>
             </div>
           </TabsContent>
-
-          {/* Tab 5: Bond Analytics Dashboard */}
-          <TabsContent value="analytics">
-            <div className="space-y-6">
-              {/* Duration Dashboard */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Duration Analysis</CardTitle>
-                  <CardDescription>
-                    Macaulay and Modified Duration for each investment option
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <h5 className="font-semibold mb-4 text-center">Macaulay Duration (Years)</h5>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={[
-                          { name: 'Option A\n(Gov Bond)', duration: bondAnalytics.optionA.macaulayDuration, fill: '#3b82f6' },
-                          { name: 'Option B\n(Corp Bond)', duration: bondAnalytics.optionB.macaulayDuration, fill: '#8b5cf6' },
-                          { name: 'Option C\n(Fund)', duration: bondAnalytics.optionC.macaulayDuration, fill: '#10b981' },
-                        ]}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis label={{ value: 'Years', angle: -90, position: 'insideLeft' }} />
-                          <Tooltip formatter={(value) => `${value.toFixed(2)} years`} />
-                          <Bar dataKey="duration" radius={[8, 8, 0, 0]}>
-                            {[1, 2, 3].map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981'][index]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div>
-                      <h5 className="font-semibold mb-4 text-center">Modified Duration (Years)</h5>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={[
-                          { name: 'Option A\n(Gov Bond)', duration: bondAnalytics.optionA.modifiedDuration, fill: '#3b82f6' },
-                          { name: 'Option B\n(Corp Bond)', duration: bondAnalytics.optionB.modifiedDuration, fill: '#8b5cf6' },
-                          { name: 'Option C\n(Fund)', duration: bondAnalytics.optionC.modifiedDuration, fill: '#10b981' },
-                        ]}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis label={{ value: 'Years', angle: -90, position: 'insideLeft' }} />
-                          <Tooltip formatter={(value) => `${value.toFixed(2)} years`} />
-                          <Bar dataKey="duration" radius={[8, 8, 0, 0]}>
-                            {[1, 2, 3].map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981'][index]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                  <div className="mt-6 grid md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h6 className="font-semibold text-blue-900 mb-2">Option A - Government Bond</h6>
-                      <p className="text-sm text-blue-700">Macaulay: <strong>{bondAnalytics.optionA.macaulayDuration.toFixed(2)} years</strong></p>
-                      <p className="text-sm text-blue-700">Modified: <strong>{bondAnalytics.optionA.modifiedDuration.toFixed(2)} years</strong></p>
-                      <p className="text-xs text-blue-600 mt-2">1% yield ↑ = {(bondAnalytics.optionA.modifiedDuration * -1).toFixed(2)}% price ↓</p>
-                    </div>
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <h6 className="font-semibold text-purple-900 mb-2">Option B - Corporate Bond</h6>
-                      <p className="text-sm text-purple-700">Macaulay: <strong>{bondAnalytics.optionB.macaulayDuration.toFixed(2)} years</strong></p>
-                      <p className="text-sm text-purple-700">Modified: <strong>{bondAnalytics.optionB.modifiedDuration.toFixed(2)} years</strong></p>
-                      <p className="text-xs text-purple-600 mt-2">1% yield ↑ = {(bondAnalytics.optionB.modifiedDuration * -1).toFixed(2)}% price ↓</p>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h6 className="font-semibold text-green-900 mb-2">Option C - Balanced Fund</h6>
-                      <p className="text-sm text-green-700">Macaulay: <strong>{bondAnalytics.optionC.macaulayDuration.toFixed(2)} years</strong></p>
-                      <p className="text-sm text-green-700">Modified: <strong>{bondAnalytics.optionC.modifiedDuration.toFixed(2)} years</strong></p>
-                      <p className="text-xs text-green-600 mt-2">1% yield ↑ = {(bondAnalytics.optionC.modifiedDuration * -1).toFixed(2)}% price ↓</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Convexity Dashboard */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Convexity Analysis</CardTitle>
-                  <CardDescription>
-                    Bond convexity measures the curvature of price-yield relationship
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={[
-                      { name: 'Option A (Gov Bond)', convexity: bondAnalytics.optionA.convexity, fill: '#3b82f6' },
-                      { name: 'Option B (Corp Bond)', convexity: bondAnalytics.optionB.convexity, fill: '#8b5cf6' },
-                      { name: 'Option C (Fund)', convexity: bondAnalytics.optionC.convexity, fill: '#10b981' },
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => value.toFixed(2)} />
-                      <Bar dataKey="convexity" radius={[8, 8, 0, 0]}>
-                        {[1, 2, 3].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981'][index]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <div className="mt-6 grid md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-blue-50 rounded-lg text-center">
-                      <h6 className="font-semibold text-blue-900">Option A (Gov Bond)</h6>
-                      <p className="text-3xl font-bold text-blue-600 my-2">{bondAnalytics.optionA.convexity.toFixed(2)}</p>
-                      <p className="text-xs text-blue-700">Higher convexity = Better protection</p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        2% yield ↑ → convexity adds +{(0.5 * bondAnalytics.optionA.convexity * 0.04).toFixed(2)}% to price
-                      </p>
-                    </div>
-                    <div className="p-4 bg-purple-50 rounded-lg text-center">
-                      <h6 className="font-semibold text-purple-900">Option B (Corp Bond)</h6>
-                      <p className="text-3xl font-bold text-purple-600 my-2">{bondAnalytics.optionB.convexity.toFixed(2)}</p>
-                      <p className="text-xs text-purple-700">Higher convexity = Better protection</p>
-                      <p className="text-xs text-purple-600 mt-1">
-                        2% yield ↑ → convexity adds +{(0.5 * bondAnalytics.optionB.convexity * 0.04).toFixed(2)}% to price
-                      </p>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-lg text-center">
-                      <h6 className="font-semibold text-green-900">Option C (Fund)</h6>
-                      <p className="text-3xl font-bold text-green-600 my-2">{bondAnalytics.optionC.convexity.toFixed(2)}</p>
-                      <p className="text-xs text-green-700">Higher convexity = Better protection</p>
-                      <p className="text-xs text-green-600 mt-1">
-                        2% yield ↑ → convexity adds +{(0.5 * bondAnalytics.optionC.convexity * 0.04).toFixed(2)}% to price
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <Alert className="mt-6">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>What is Convexity?</AlertTitle>
-                    <AlertDescription>
-                      <p className="text-sm mt-2">
-                        <strong>Convexity</strong> measures how the duration of a bond changes as interest rates change. It's the "curvature" in the price-yield relationship:
-                      </p>
-                      <ul className="text-sm mt-2 space-y-1 ml-4">
-                        <li>• <strong>Higher convexity is better</strong>: Your bond gains more when rates fall and loses less when rates rise</li>
-                        <li>• <strong>Formula</strong>: Price Change ≈ -Duration × ΔY + ½ × Convexity × (ΔY)²</li>
-                        <li>• <strong>Longer maturity bonds</strong> typically have higher convexity (Option A)</li>
-                        <li>• <strong>Lower coupon bonds</strong> also tend to have higher convexity</li>
-                      </ul>
-                      <p className="text-sm mt-2 font-medium">
-                        Example: If yields rise 2%, Option A's duration says price falls {bondAnalytics.optionA.modifiedDuration.toFixed(2)}%, 
-                        but convexity adds back +{(0.5 * bondAnalytics.optionA.convexity * 0.04).toFixed(2)}%, 
-                        so net change is {(-bondAnalytics.optionA.modifiedDuration * 0.02 + 0.5 * bondAnalytics.optionA.convexity * 0.0004).toFixed(2)}%.
-                      </p>
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-
-              {/* Interest Rate Sensitivity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Interest Rate Sensitivity Analysis</CardTitle>
-                  <CardDescription>
-                    How bond prices change with interest rate movements (Duration + Convexity)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <LineChart data={(() => {
-                      const yieldChanges = [];
-                      for (let dy = -0.03; dy <= 0.03; dy += 0.0025) {
-                        const basePrice = 100;
-                        yieldChanges.push({
-                          yieldChange: dy * 100,
-                          optionA: basePrice + priceChangeWithConvexity(basePrice, bondAnalytics.optionA.modifiedDuration, bondAnalytics.optionA.convexity, dy),
-                          optionB: basePrice + priceChangeWithConvexity(basePrice, bondAnalytics.optionB.modifiedDuration, bondAnalytics.optionB.convexity, dy),
-                          optionC: basePrice + priceChangeWithConvexity(basePrice, bondAnalytics.optionC.modifiedDuration, bondAnalytics.optionC.convexity, dy),
-                        });
-                      }
-                      return yieldChanges;
-                    })()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="yieldChange" 
-                        label={{ value: 'Yield Change (%)', position: 'insideBottom', offset: -5 }}
-                        tickFormatter={(value) => `${value.toFixed(1)}%`}
-                      />
-                      <YAxis 
-                        label={{ value: 'Bond Price', angle: -90, position: 'insideLeft' }}
-                        domain={[85, 115]}
-                      />
-                      <Tooltip 
-                        formatter={(value) => `${value.toFixed(2)}`}
-                        labelFormatter={(value) => `Yield Change: ${value.toFixed(2)}%`}
-                      />
-                      <Legend />
-                      <Line type="monotone" dataKey="optionA" stroke="#3b82f6" strokeWidth={2} name="Option A (Gov Bond)" dot={false} />
-                      <Line type="monotone" dataKey="optionB" stroke="#8b5cf6" strokeWidth={2} name="Option B (Corp Bond)" dot={false} />
-                      <Line type="monotone" dataKey="optionC" stroke="#10b981" strokeWidth={2} name="Option C (Fund)" dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                  <Alert className="mt-4">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Understanding the Chart</AlertTitle>
-                    <AlertDescription>
-                      <p className="text-sm mt-2">
-                        This chart shows how bond prices respond to interest rate changes. The curved lines demonstrate convexity:
-                      </p>
-                      <ul className="text-sm mt-2 space-y-1 ml-4">
-                        <li>• <strong>Steeper curve</strong> = Higher duration (more sensitive to rate changes)</li>
-                        <li>• <strong>More curved</strong> = Higher convexity (better protection in volatile markets)</li>
-                        <li>• Option A (longest duration) shows the steepest price changes</li>
-                        <li>• All bonds benefit from positive convexity (upward curve)</li>
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-
-              {/* Input Verification Card */}
-              <Card className="bg-gradient-to-br from-amber-50 to-orange-50">
-                <CardHeader>
-                  <CardTitle className="text-lg">📋 Calculation Inputs Verification</CardTitle>
-                  <CardDescription>
-                    Bond parameters used for Duration and Convexity calculations
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4 text-sm">
-                    <div className="space-y-2">
-                      <h6 className="font-bold text-blue-900">Option A - Gov Bond</h6>
-                      <p>• Face Value: ₫100</p>
-                      <p>• Coupon Rate: <strong>4.8% annually</strong></p>
-                      <p>• Coupon Payment: ₫{(0.048 * 100).toFixed(2)}/year</p>
-                      <p>• Maturity: <strong>10 years</strong></p>
-                      <p>• YTM: <strong>5.21%</strong></p>
-                      <p>• Payment Frequency: Annual (1×/year)</p>
-                    </div>
-                    <div className="space-y-2">
-                      <h6 className="font-bold text-purple-900">Option B - Corp Bond</h6>
-                      <p>• Face Value: ₫100</p>
-                      <p>• Coupon Rate: <strong>8.0% annually</strong></p>
-                      <p>• Coupon Payment: ₫{(0.08 * 100 / 2).toFixed(2)}/6mo</p>
-                      <p>• Maturity: <strong>7 years</strong></p>
-                      <p>• YTM: <strong>7.72%</strong></p>
-                      <p>• Payment Frequency: Semi-annual (2×/year)</p>
-                    </div>
-                    <div className="space-y-2">
-                      <h6 className="font-bold text-green-900">Option C - Fund</h6>
-                      <p>• Type: Balanced Fund (80/20)</p>
-                      <p>• Expected Return: <strong>9.0%</strong></p>
-                      <p>• Estimated Duration: <strong>4 years</strong></p>
-                      <p>• Estimated Convexity: <strong>20</strong></p>
-                      <p>• Note: Fund metrics are approximations</p>
-                      <p className="text-xs text-gray-600">Based on 80% bond allocation</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Summary Table */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Complete Bond Analytics Summary</CardTitle>
-                  <CardDescription>
-                    All key metrics for duration and convexity analysis
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Metric</TableHead>
-                        <TableHead>Option A (Gov)</TableHead>
-                        <TableHead>Option B (Corp)</TableHead>
-                        <TableHead>Option C (Fund)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell className="font-medium">Macaulay Duration</TableCell>
-                        <TableCell>{bondAnalytics.optionA.macaulayDuration.toFixed(3)} years</TableCell>
-                        <TableCell>{bondAnalytics.optionB.macaulayDuration.toFixed(3)} years</TableCell>
-                        <TableCell>{bondAnalytics.optionC.macaulayDuration.toFixed(3)} years</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Modified Duration</TableCell>
-                        <TableCell>{bondAnalytics.optionA.modifiedDuration.toFixed(3)} years</TableCell>
-                        <TableCell>{bondAnalytics.optionB.modifiedDuration.toFixed(3)} years</TableCell>
-                        <TableCell>{bondAnalytics.optionC.modifiedDuration.toFixed(3)} years</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Convexity</TableCell>
-                        <TableCell>{bondAnalytics.optionA.convexity.toFixed(2)}</TableCell>
-                        <TableCell>{bondAnalytics.optionB.convexity.toFixed(2)}</TableCell>
-                        <TableCell>{bondAnalytics.optionC.convexity.toFixed(2)}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Price Change (1% yield ↑)</TableCell>
-                        <TableCell className="text-red-600">-{bondAnalytics.optionA.modifiedDuration.toFixed(2)}%</TableCell>
-                        <TableCell className="text-red-600">-{bondAnalytics.optionB.modifiedDuration.toFixed(2)}%</TableCell>
-                        <TableCell className="text-red-600">-{bondAnalytics.optionC.modifiedDuration.toFixed(2)}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Price Change (1% yield ↓)</TableCell>
-                        <TableCell className="text-green-600">+{bondAnalytics.optionA.modifiedDuration.toFixed(2)}%</TableCell>
-                        <TableCell className="text-green-600">+{bondAnalytics.optionB.modifiedDuration.toFixed(2)}%</TableCell>
-                        <TableCell className="text-green-600">+{bondAnalytics.optionC.modifiedDuration.toFixed(2)}%</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
         </Tabs>
 
-        {/* AI Chatbot Button */}
+        {/* AI Chatbot Button - Enhanced UI */}
         <div className="fixed bottom-6 right-6 z-50">
           {!chatOpen ? (
             <Button
               onClick={() => setChatOpen(true)}
-              className="rounded-full w-16 h-16 shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 animate-pulse"
             >
-              <MessageCircle className="w-6 h-6" />
+              <MessageCircle className="w-8 h-8" />
             </Button>
           ) : (
-            <Card className="w-96 h-[600px] flex flex-col shadow-2xl">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+            <Card className="w-[450px] h-[650px] flex flex-col shadow-2xl border-2 border-purple-200">
+              <CardHeader className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white p-4">
                 <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-lg text-white">AI Investment Assistant</CardTitle>
-                    <CardDescription className="text-blue-100 text-xs">Powered by Google Gemini</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                      <MessageCircle className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg text-white">AI Investment Assistant</CardTitle>
+                      <CardDescription className="text-blue-100 text-xs">Powered by Google Gemini 2.0</CardDescription>
+                    </div>
                   </div>
-                  <button onClick={() => setChatOpen(false)} className="text-white hover:bg-white/20 rounded p-1">
+                  <button 
+                    onClick={() => setChatOpen(false)} 
+                    className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                  >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
                 {chatMessages.length === 0 && (
                   <div className="text-center text-gray-500 mt-8">
-                    <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">Ask me anything about the investment calculations!</p>
-                    <div className="mt-4 space-y-2">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 flex items-center justify-center mx-auto mb-4">
+                      <MessageCircle className="w-10 h-10 text-purple-600" />
+                    </div>
+                    <h6 className="font-semibold text-gray-700 mb-2">Ask me anything!</h6>
+                    <p className="text-sm text-gray-500 mb-4">I can help explain investment calculations and concepts</p>
+                    <div className="space-y-2">
                       <button 
-                        onClick={() => sendMessageToGemini("How is the YTM calculated for Option A?")}
-                        className="block w-full text-left p-2 text-xs bg-blue-50 hover:bg-blue-100 rounded"
+                        onClick={() => sendMessageToGemini("How is the YTM calculated for Option A? Show me step by step.")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-blue-50 rounded-lg shadow-sm border border-blue-100 transition-all"
                       >
-                        How is YTM calculated for Option A?
+                        <span className="text-blue-600 font-medium">📊</span> How is YTM calculated for Option A?
                       </button>
                       <button 
-                        onClick={() => sendMessageToGemini("Explain the Monte Carlo simulation")}
-                        className="block w-full text-left p-2 text-xs bg-purple-50 hover:bg-purple-100 rounded"
+                        onClick={() => sendMessageToGemini("Explain the Monte Carlo simulation methodology in detail")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-purple-50 rounded-lg shadow-sm border border-purple-100 transition-all"
                       >
-                        Explain the Monte Carlo simulation
+                        <span className="text-purple-600 font-medium">🎲</span> Explain the Monte Carlo simulation
                       </button>
                       <button 
-                        onClick={() => sendMessageToGemini("Why is the portfolio less risky?")}
-                        className="block w-full text-left p-2 text-xs bg-green-50 hover:bg-green-100 rounded"
+                        onClick={() => sendMessageToGemini("Why is the diversified portfolio less risky than Option C alone?")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-green-50 rounded-lg shadow-sm border border-green-100 transition-all"
                       >
-                        Why is the portfolio less risky?
+                        <span className="text-green-600 font-medium">📈</span> Why is diversification important?
+                      </button>
+                      <button 
+                        onClick={() => sendMessageToGemini("Calculate the real return for each option step by step")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-orange-50 rounded-lg shadow-sm border border-orange-100 transition-all"
+                      >
+                        <span className="text-orange-600 font-medium">💰</span> How do you calculate real returns?
                       </button>
                     </div>
                   </div>
                 )}
                 {chatMessages.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-3 rounded-lg ${
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                    <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm ${
                       msg.role === 'user' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-100 text-gray-800'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-sm' 
+                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
                     }`}>
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      {msg.role === 'assistant' && (
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200">
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">AI</span>
+                          </div>
+                          <span className="text-xs font-semibold text-gray-600">Gemini Assistant</span>
+                        </div>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <p className="text-xs opacity-70 mt-2">
+                        {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
                   </div>
                 ))}
                 {isLoadingResponse && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 p-3 rounded-lg">
-                      <p className="text-sm text-gray-600">Thinking...</p>
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                        <p className="text-sm text-gray-600">AI is thinking...</p>
+                      </div>
                     </div>
                   </div>
                 )}
               </CardContent>
-              <div className="p-4 border-t">
+              <div className="p-4 border-t bg-white">
                 <form onSubmit={handleSendMessage} className="flex gap-2">
                   <input
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask about calculations..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    placeholder="Type your question here..."
+                    className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
                     disabled={isLoadingResponse}
                   />
-                  <Button type="submit" disabled={isLoadingResponse || !inputMessage.trim()}>
-                    <Send className="w-4 h-4" />
+                  <Button 
+                    type="submit" 
+                    disabled={isLoadingResponse || !inputMessage.trim()}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 rounded-xl"
+                  >
+                    <Send className="w-5 h-5" />
                   </Button>
                 </form>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Press Enter to send • Ask anything about investments
+                </p>
               </div>
             </Card>
           )}
