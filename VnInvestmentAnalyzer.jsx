@@ -390,13 +390,39 @@ const VnInvestmentAnalyzer = () => {
       const optionC_paths = [];
       const portfolio_paths = [];
       
-      for (let i = 0; i < trials; i++) {
-        // Generate random annual returns for 10 years and compound
+      // First, collect all paths for visualization
+      for (let i = 0; i < Math.min(trials, pathsToShow); i++) {
+        const optionC_path = [];
+        const portfolio_path = [];
         let optionC_value = initialInvestment;
         let portfolio_value = initialInvestment;
         
-        const optionC_path = [{ year: 0, value: initialInvestment }];
-        const portfolio_path = [{ year: 0, value: initialInvestment }];
+        for (let year = 0; year <= years; year++) {
+          if (year === 0) {
+            optionC_path.push({ year, value: initialInvestment });
+            portfolio_path.push({ year, value: initialInvestment });
+          } else {
+            const optionC_return = randomNormal(optionC_mean, optionC_stdDev);
+            const portfolio_return = randomNormal(portfolio_mean, portfolio_stdDev);
+            
+            optionC_value *= (1 + optionC_return);
+            portfolio_value *= (1 + portfolio_return);
+            
+            optionC_path.push({ year, value: optionC_value });
+            portfolio_path.push({ year, value: portfolio_value });
+          }
+        }
+        
+        optionC_paths.push(optionC_path);
+        portfolio_paths.push(portfolio_path);
+        optionC_results.push(optionC_value);
+        portfolio_results.push(portfolio_value);
+      }
+      
+      // Now run remaining trials for statistics
+      for (let i = pathsToShow; i < trials; i++) {
+        let optionC_value = initialInvestment;
+        let portfolio_value = initialInvestment;
         
         for (let year = 1; year <= years; year++) {
           const optionC_return = randomNormal(optionC_mean, optionC_stdDev);
@@ -404,20 +430,10 @@ const VnInvestmentAnalyzer = () => {
           
           optionC_value *= (1 + optionC_return);
           portfolio_value *= (1 + portfolio_return);
-          
-          if (i < pathsToShow) {
-            optionC_path.push({ year, value: optionC_value });
-            portfolio_path.push({ year, value: portfolio_value });
-          }
         }
         
         optionC_results.push(optionC_value);
         portfolio_results.push(portfolio_value);
-        
-        if (i < pathsToShow) {
-          optionC_paths.push(optionC_path);
-          portfolio_paths.push(portfolio_path);
-        }
       }
       
       // Sort results
