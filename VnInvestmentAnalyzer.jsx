@@ -19,6 +19,68 @@ function randomNormal(mean, stdDev) {
   return z0 * stdDev + mean;
 }
 
+// Vasicek Interest Rate Model
+// dr(t) = a(b - r(t))dt + σdW(t)
+function vasicekRate(r0, a, b, sigma, dt) {
+  const drift = a * (b - r0) * dt;
+  const diffusion = sigma * Math.sqrt(dt) * randomNormal(0, 1);
+  return Math.max(0, r0 + drift + diffusion); // Ensure non-negative rates
+}
+
+// Calculate Bond Duration (Macaulay Duration)
+function calculateDuration(couponRate, maturity, ytm, frequency = 1) {
+  const coupon = couponRate / frequency;
+  const periods = maturity * frequency;
+  let duration = 0;
+  let price = 0;
+  
+  for (let t = 1; t <= periods; t++) {
+    const pv = coupon / Math.pow(1 + ytm / frequency, t);
+    duration += (t / frequency) * pv;
+    price += pv;
+  }
+  
+  // Add principal repayment
+  const principalPV = 100 / Math.pow(1 + ytm / frequency, periods);
+  duration += (maturity) * principalPV;
+  price += principalPV;
+  
+  return duration / price;
+}
+
+// Calculate Modified Duration
+function calculateModifiedDuration(macaulayDuration, ytm, frequency = 1) {
+  return macaulayDuration / (1 + ytm / frequency);
+}
+
+// Calculate Bond Convexity
+function calculateConvexity(couponRate, maturity, ytm, frequency = 1) {
+  const coupon = couponRate / frequency;
+  const periods = maturity * frequency;
+  let convexity = 0;
+  let price = 0;
+  
+  for (let t = 1; t <= periods; t++) {
+    const pv = coupon / Math.pow(1 + ytm / frequency, t);
+    convexity += (t * (t + 1)) * pv / Math.pow(frequency, 2);
+    price += pv;
+  }
+  
+  // Add principal repayment
+  const principalPV = 100 / Math.pow(1 + ytm / frequency, periods);
+  convexity += (periods * (periods + 1)) * principalPV / Math.pow(frequency, 2);
+  price += principalPV;
+  
+  return convexity / (price * Math.pow(1 + ytm / frequency, 2));
+}
+
+// Calculate price change using Duration and Convexity
+function priceChangeWithConvexity(price, modDuration, convexity, yieldChange) {
+  const durationEffect = -modDuration * yieldChange * price;
+  const convexityEffect = 0.5 * convexity * Math.pow(yieldChange, 2) * price;
+  return durationEffect + convexityEffect;
+}
+
 // ============================================================================
 // UI Components (shadcn/ui inspired)
 // ============================================================================
@@ -182,6 +244,8 @@ const VnInvestmentAnalyzer = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
+  const [vasicekSimulation, setVasicekSimulation] = useState(null);
+  const [isSimulatingVasicek, setIsSimulatingVasicek] = useState(false);
 
   // Investment data
   const initialInvestment = 200000000; // 200M VND
@@ -236,6 +300,43 @@ const VnInvestmentAnalyzer = () => {
     optionB: 40,
     optionC: 40,
   };
+
+  // Calculate Duration and Convexity for each bond
+  const bondAnalytics = useMemo(() => {
+    // Option A: 10-year Government Bond, 4.8% coupon, YTM 5.21%
+    const optionA_macDuration = calculateDuration(0.048, 10, 0.0521, 1);
+    const optionA_modDuration = calculateModifiedDuration(optionA_macDuration, 0.0521, 1);
+    const optionA_convexity = calculateConvexity(0.048, 10, 0.0521, 1);
+
+    // Option B: 7-year Corporate Bond, 8.0% coupon, YTM 7.72%
+    const optionB_macDuration = calculateDuration(0.08, 7, 0.0772, 2);
+    const optionB_modDuration = calculateModifiedDuration(optionB_macDuration, 0.0772, 2);
+    const optionB_convexity = calculateConvexity(0.08, 7, 0.0772, 2);
+
+    // For funds, use approximate duration based on portfolio composition
+    // 80% bonds (avg 5 years), 20% stocks (duration ~0)
+    const optionC_macDuration = 4.0; // Estimated
+    const optionC_modDuration = 4.0 / (1 + 0.09);
+    const optionC_convexity = 20; // Estimated for balanced fund
+
+    return {
+      optionA: {
+        macaulayDuration: optionA_macDuration,
+        modifiedDuration: optionA_modDuration,
+        convexity: optionA_convexity,
+      },
+      optionB: {
+        macaulayDuration: optionB_macDuration,
+        modifiedDuration: optionB_modDuration,
+        convexity: optionB_convexity,
+      },
+      optionC: {
+        macaulayDuration: optionC_macDuration,
+        modifiedDuration: optionC_modDuration,
+        convexity: optionC_convexity,
+      },
+    };
+  }, []);
 
   // Calculate portfolio weighted returns
   const portfolioMetrics = useMemo(() => {
@@ -487,6 +588,9 @@ Please provide a clear, educational explanation to help understand the calculati
             </TabsTrigger>
             <TabsTrigger value="monte-carlo" icon={TrendingUp}>
               Monte Carlo
+            </TabsTrigger>
+            <TabsTrigger value="analytics" icon={AlertCircle}>
+              Bond Analytics
             </TabsTrigger>
           </TabsList>
 
@@ -1150,6 +1254,246 @@ Please provide a clear, educational explanation to help understand the calculati
                       volatility in financial markets and provides a more realistic picture than simple compound interest calculations.
                     </p>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tab 5: Bond Analytics Dashboard */}
+          <TabsContent value="analytics">
+            <div className="space-y-6">
+              {/* Duration Dashboard */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Duration Analysis</CardTitle>
+                  <CardDescription>
+                    Macaulay and Modified Duration for each investment option
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 className="font-semibold mb-4 text-center">Macaulay Duration (Years)</h5>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={[
+                          { name: 'Option A\n(Gov Bond)', duration: bondAnalytics.optionA.macaulayDuration, fill: '#3b82f6' },
+                          { name: 'Option B\n(Corp Bond)', duration: bondAnalytics.optionB.macaulayDuration, fill: '#8b5cf6' },
+                          { name: 'Option C\n(Fund)', duration: bondAnalytics.optionC.macaulayDuration, fill: '#10b981' },
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis label={{ value: 'Years', angle: -90, position: 'insideLeft' }} />
+                          <Tooltip formatter={(value) => `${value.toFixed(2)} years`} />
+                          <Bar dataKey="duration" radius={[8, 8, 0, 0]}>
+                            {[1, 2, 3].map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981'][index]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold mb-4 text-center">Modified Duration (Years)</h5>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={[
+                          { name: 'Option A\n(Gov Bond)', duration: bondAnalytics.optionA.modifiedDuration, fill: '#3b82f6' },
+                          { name: 'Option B\n(Corp Bond)', duration: bondAnalytics.optionB.modifiedDuration, fill: '#8b5cf6' },
+                          { name: 'Option C\n(Fund)', duration: bondAnalytics.optionC.modifiedDuration, fill: '#10b981' },
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis label={{ value: 'Years', angle: -90, position: 'insideLeft' }} />
+                          <Tooltip formatter={(value) => `${value.toFixed(2)} years`} />
+                          <Bar dataKey="duration" radius={[8, 8, 0, 0]}>
+                            {[1, 2, 3].map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981'][index]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="mt-6 grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <h6 className="font-semibold text-blue-900 mb-2">Option A - Government Bond</h6>
+                      <p className="text-sm text-blue-700">Macaulay: <strong>{bondAnalytics.optionA.macaulayDuration.toFixed(2)} years</strong></p>
+                      <p className="text-sm text-blue-700">Modified: <strong>{bondAnalytics.optionA.modifiedDuration.toFixed(2)} years</strong></p>
+                      <p className="text-xs text-blue-600 mt-2">1% yield ↑ = {(bondAnalytics.optionA.modifiedDuration * -1).toFixed(2)}% price ↓</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <h6 className="font-semibold text-purple-900 mb-2">Option B - Corporate Bond</h6>
+                      <p className="text-sm text-purple-700">Macaulay: <strong>{bondAnalytics.optionB.macaulayDuration.toFixed(2)} years</strong></p>
+                      <p className="text-sm text-purple-700">Modified: <strong>{bondAnalytics.optionB.modifiedDuration.toFixed(2)} years</strong></p>
+                      <p className="text-xs text-purple-600 mt-2">1% yield ↑ = {(bondAnalytics.optionB.modifiedDuration * -1).toFixed(2)}% price ↓</p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <h6 className="font-semibold text-green-900 mb-2">Option C - Balanced Fund</h6>
+                      <p className="text-sm text-green-700">Macaulay: <strong>{bondAnalytics.optionC.macaulayDuration.toFixed(2)} years</strong></p>
+                      <p className="text-sm text-green-700">Modified: <strong>{bondAnalytics.optionC.modifiedDuration.toFixed(2)} years</strong></p>
+                      <p className="text-xs text-green-600 mt-2">1% yield ↑ = {(bondAnalytics.optionC.modifiedDuration * -1).toFixed(2)}% price ↓</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Convexity Dashboard */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Convexity Analysis</CardTitle>
+                  <CardDescription>
+                    Bond convexity measures the curvature of price-yield relationship
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={[
+                      { name: 'Option A (Gov Bond)', convexity: bondAnalytics.optionA.convexity, fill: '#3b82f6' },
+                      { name: 'Option B (Corp Bond)', convexity: bondAnalytics.optionB.convexity, fill: '#8b5cf6' },
+                      { name: 'Option C (Fund)', convexity: bondAnalytics.optionC.convexity, fill: '#10b981' },
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => value.toFixed(2)} />
+                      <Bar dataKey="convexity" radius={[8, 8, 0, 0]}>
+                        {[1, 2, 3].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981'][index]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="mt-6 grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-lg text-center">
+                      <h6 className="font-semibold text-blue-900">Option A</h6>
+                      <p className="text-3xl font-bold text-blue-600 my-2">{bondAnalytics.optionA.convexity.toFixed(2)}</p>
+                      <p className="text-xs text-blue-700">Higher convexity = Better protection against rate changes</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg text-center">
+                      <h6 className="font-semibold text-purple-900">Option B</h6>
+                      <p className="text-3xl font-bold text-purple-600 my-2">{bondAnalytics.optionB.convexity.toFixed(2)}</p>
+                      <p className="text-xs text-purple-700">Higher convexity = Better protection against rate changes</p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg text-center">
+                      <h6 className="font-semibold text-green-900">Option C</h6>
+                      <p className="text-3xl font-bold text-green-600 my-2">{bondAnalytics.optionC.convexity.toFixed(2)}</p>
+                      <p className="text-xs text-green-700">Higher convexity = Better protection against rate changes</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Interest Rate Sensitivity */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Interest Rate Sensitivity Analysis</CardTitle>
+                  <CardDescription>
+                    How bond prices change with interest rate movements (Duration + Convexity)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <LineChart data={(() => {
+                      const yieldChanges = [];
+                      for (let dy = -0.03; dy <= 0.03; dy += 0.0025) {
+                        const basePrice = 100;
+                        yieldChanges.push({
+                          yieldChange: dy * 100,
+                          optionA: basePrice + priceChangeWithConvexity(basePrice, bondAnalytics.optionA.modifiedDuration, bondAnalytics.optionA.convexity, dy),
+                          optionB: basePrice + priceChangeWithConvexity(basePrice, bondAnalytics.optionB.modifiedDuration, bondAnalytics.optionB.convexity, dy),
+                          optionC: basePrice + priceChangeWithConvexity(basePrice, bondAnalytics.optionC.modifiedDuration, bondAnalytics.optionC.convexity, dy),
+                        });
+                      }
+                      return yieldChanges;
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="yieldChange" 
+                        label={{ value: 'Yield Change (%)', position: 'insideBottom', offset: -5 }}
+                        tickFormatter={(value) => `${value.toFixed(1)}%`}
+                      />
+                      <YAxis 
+                        label={{ value: 'Bond Price', angle: -90, position: 'insideLeft' }}
+                        domain={[85, 115]}
+                      />
+                      <Tooltip 
+                        formatter={(value) => `${value.toFixed(2)}`}
+                        labelFormatter={(value) => `Yield Change: ${value.toFixed(2)}%`}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="optionA" stroke="#3b82f6" strokeWidth={2} name="Option A (Gov Bond)" dot={false} />
+                      <Line type="monotone" dataKey="optionB" stroke="#8b5cf6" strokeWidth={2} name="Option B (Corp Bond)" dot={false} />
+                      <Line type="monotone" dataKey="optionC" stroke="#10b981" strokeWidth={2} name="Option C (Fund)" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <Alert className="mt-4">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Understanding the Chart</AlertTitle>
+                    <AlertDescription>
+                      <p className="text-sm mt-2">
+                        This chart shows how bond prices respond to interest rate changes. The curved lines demonstrate convexity:
+                      </p>
+                      <ul className="text-sm mt-2 space-y-1 ml-4">
+                        <li>• <strong>Steeper curve</strong> = Higher duration (more sensitive to rate changes)</li>
+                        <li>• <strong>More curved</strong> = Higher convexity (better protection in volatile markets)</li>
+                        <li>• Option A (longest duration) shows the steepest price changes</li>
+                        <li>• All bonds benefit from positive convexity (upward curve)</li>
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
+
+              {/* Summary Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Complete Bond Analytics Summary</CardTitle>
+                  <CardDescription>
+                    All key metrics for duration and convexity analysis
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Metric</TableHead>
+                        <TableHead>Option A (Gov)</TableHead>
+                        <TableHead>Option B (Corp)</TableHead>
+                        <TableHead>Option C (Fund)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-medium">Macaulay Duration</TableCell>
+                        <TableCell>{bondAnalytics.optionA.macaulayDuration.toFixed(3)} years</TableCell>
+                        <TableCell>{bondAnalytics.optionB.macaulayDuration.toFixed(3)} years</TableCell>
+                        <TableCell>{bondAnalytics.optionC.macaulayDuration.toFixed(3)} years</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Modified Duration</TableCell>
+                        <TableCell>{bondAnalytics.optionA.modifiedDuration.toFixed(3)} years</TableCell>
+                        <TableCell>{bondAnalytics.optionB.modifiedDuration.toFixed(3)} years</TableCell>
+                        <TableCell>{bondAnalytics.optionC.modifiedDuration.toFixed(3)} years</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Convexity</TableCell>
+                        <TableCell>{bondAnalytics.optionA.convexity.toFixed(2)}</TableCell>
+                        <TableCell>{bondAnalytics.optionB.convexity.toFixed(2)}</TableCell>
+                        <TableCell>{bondAnalytics.optionC.convexity.toFixed(2)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Price Change (1% yield ↑)</TableCell>
+                        <TableCell className="text-red-600">-{bondAnalytics.optionA.modifiedDuration.toFixed(2)}%</TableCell>
+                        <TableCell className="text-red-600">-{bondAnalytics.optionB.modifiedDuration.toFixed(2)}%</TableCell>
+                        <TableCell className="text-red-600">-{bondAnalytics.optionC.modifiedDuration.toFixed(2)}%</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Price Change (1% yield ↓)</TableCell>
+                        <TableCell className="text-green-600">+{bondAnalytics.optionA.modifiedDuration.toFixed(2)}%</TableCell>
+                        <TableCell className="text-green-600">+{bondAnalytics.optionB.modifiedDuration.toFixed(2)}%</TableCell>
+                        <TableCell className="text-green-600">+{bondAnalytics.optionC.modifiedDuration.toFixed(2)}%</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </div>
