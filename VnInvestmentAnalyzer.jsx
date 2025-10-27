@@ -829,23 +829,36 @@ Please provide a clear, educational explanation to help understand the calculati
                   <div className="bg-white p-6 rounded-lg border border-purple-200">
                     <h5 className="text-xl font-bold text-purple-600 mb-3">2. Corporate Bonds (e.g., Option B)</h5>
                     <div className="space-y-3">
-                      <p><strong>Can individuals buy?</strong> <span className="text-red-700 text-lg font-semibold">⚠️ It is highly restricted</span></p>
+                      <p><strong>Can individuals buy?</strong> <span className="text-orange-700 text-lg font-semibold">✅ Yes, through secondary market intermediaries</span></p>
                       <p><strong>Description:</strong> These are issued by private companies (like VPBank) to raise capital. They offer higher yields because they carry higher credit risk (the risk the company could default).</p>
-                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
-                        <p><strong>The "Professional Investor" Rule:</strong></p>
+                      
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-300">
+                        <p><strong>How to Buy Corporate Bonds:</strong></p>
                         <p className="mt-2">
-                          Due to regulations (primarily <strong>Decree 153/2020/ND-CP</strong> and its amendments like <strong>Decree 65/2022/ND-CP</strong>), 
-                          the direct purchase of privately placed corporate bonds is restricted to <strong>"Professional Securities Investors"</strong> only.
+                          While direct purchase of privately placed corporate bonds is restricted to <strong>"Professional Securities Investors"</strong> 
+                          (Decree 153/2020/ND-CP and its amendments), individuals can still buy corporate bonds through secondary market intermediaries.
                         </p>
-                        <p className="mt-2"><strong>To qualify as a "Professional Investor," an individual must meet strict criteria, such as:</strong></p>
+                        <p className="mt-2"><strong>Main channels to buy:</strong></p>
                         <ul className="list-disc ml-6 mt-2 space-y-1">
-                          <li>Holding a securities portfolio of at least <strong>₫2 billion</strong> (avg. value over 180 days), OR</li>
-                          <li>Having a recent annual taxable income of at least <strong>₫1 billion</strong></li>
+                          <li><strong>Securities Companies:</strong> Via TCBS (Techcom Securities), SSI (Saigon Securities), VPS (VPS Securities), etc. Access their bond offerings through your trading account.</li>
+                          <li><strong>Commercial Banks:</strong> Contact your bank for corporate bond products they distribute to individual investors.</li>
+                          <li><strong>Investment Advisory Firms:</strong> These firms not only act as intermediaries but also provide investment advice and analysis to help you make informed decisions.</li>
                         </ul>
                       </div>
+
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                        <p><strong>Important Notes:</strong></p>
+                        <ul className="list-disc ml-6 mt-2 space-y-1">
+                          <li>Corporate bonds carry higher risk than government bonds - the issuing company could default</li>
+                          <li>Always research the company's financial health before investing</li>
+                          <li>Check the bond's credit rating and understand the terms (coupon rate, maturity, payment frequency)</li>
+                          <li>Diversification is key - don't put all your money in one bond issuer</li>
+                        </ul>
+                      </div>
+
                       <p className="font-semibold text-purple-700">
-                        <strong>Implication for Ms. An:</strong> A typical 30-year-old investor like Ms. An is unlikely to qualify as a "professional investor." 
-                        Therefore, she cannot directly buy Option B (the VPBank corporate bond).
+                        <strong>Implication for Ms. An:</strong> Through securities companies like TCBS, SSI, or VPS, Ms. An can access corporate bonds 
+                        on the secondary market. However, due to the higher risk, she should carefully consider her allocation between Options A, B, and C.
                       </p>
                     </div>
                   </div>
@@ -869,9 +882,16 @@ Please provide a clear, educational explanation to help understand the calculati
                   {/* Summary */}
                   <div className="bg-blue-600 text-white p-6 rounded-lg">
                     <h5 className="text-xl font-bold mb-3">Summary for the Case Study</h5>
-                    <p className="text-lg">
-                      Based on this, Ms. An can directly buy <strong>Option A (Government Bond)</strong> and <strong>Option C (Fund)</strong>, 
-                      but she almost certainly <strong>cannot buy Option B (Corporate Bond)</strong> directly.
+                    <p className="text-lg mb-3">
+                      Ms. An has access to all three investment options:
+                    </p>
+                    <ul className="list-disc ml-6 space-y-2">
+                      <li><strong>Option A (Government Bond):</strong> ✅ Can buy directly through securities companies or banks</li>
+                      <li><strong>Option B (Corporate Bond):</strong> ✅ Can buy through secondary market intermediaries (TCBS, SSI, VPS, etc.)</li>
+                      <li><strong>Option C (Bond Fund):</strong> ✅ Can buy from fund management companies or through banks/brokers</li>
+                    </ul>
+                    <p className="text-lg mt-3 font-semibold">
+                      The recommended 20/40/40 portfolio diversification would provide optimal risk-return balance for her investment goals.
                     </p>
                   </div>
                 </CardContent>
