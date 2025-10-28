@@ -19,6 +19,70 @@ function randomNormal(mean, stdDev) {
   return z0 * stdDev + mean;
 }
 
+// Vasicek Interest Rate Model
+// dr(t) = a(b - r(t))dt + σdW(t)
+function vasicekRate(r0, a, b, sigma, dt) {
+  const drift = a * (b - r0) * dt;
+  const diffusion = sigma * Math.sqrt(dt) * randomNormal(0, 1);
+  return Math.max(0, r0 + drift + diffusion); // Ensure non-negative rates
+}
+
+// Calculate Bond Duration (Macaulay Duration)
+function calculateDuration(couponRate, maturity, ytm, frequency = 1) {
+  const faceValue = 100;
+  const couponPayment = (couponRate * faceValue) / frequency; // Actual cash flow per period
+  const periods = maturity * frequency;
+  let duration = 0;
+  let price = 0;
+  
+  for (let t = 1; t <= periods; t++) {
+    const pv = couponPayment / Math.pow(1 + ytm / frequency, t);
+    duration += (t / frequency) * pv;
+    price += pv;
+  }
+  
+  // Add principal repayment
+  const principalPV = faceValue / Math.pow(1 + ytm / frequency, periods);
+  duration += (maturity) * principalPV;
+  price += principalPV;
+  
+  return duration / price;
+}
+
+// Calculate Modified Duration
+function calculateModifiedDuration(macaulayDuration, ytm, frequency = 1) {
+  return macaulayDuration / (1 + ytm / frequency);
+}
+
+// Calculate Bond Convexity
+function calculateConvexity(couponRate, maturity, ytm, frequency = 1) {
+  const faceValue = 100;
+  const couponPayment = (couponRate * faceValue) / frequency; // Actual cash flow per period
+  const periods = maturity * frequency;
+  let convexity = 0;
+  let price = 0;
+  
+  for (let t = 1; t <= periods; t++) {
+    const pv = couponPayment / Math.pow(1 + ytm / frequency, t);
+    convexity += (t * (t + 1)) * pv / Math.pow(frequency, 2);
+    price += pv;
+  }
+  
+  // Add principal repayment
+  const principalPV = faceValue / Math.pow(1 + ytm / frequency, periods);
+  convexity += (periods * (periods + 1)) * principalPV / Math.pow(frequency, 2);
+  price += principalPV;
+  
+  return convexity / (price * Math.pow(1 + ytm / frequency, 2));
+}
+
+// Calculate price change using Duration and Convexity
+function priceChangeWithConvexity(price, modDuration, convexity, yieldChange) {
+  const durationEffect = -modDuration * yieldChange * price;
+  const convexityEffect = 0.5 * convexity * Math.pow(yieldChange, 2) * price;
+  return durationEffect + convexityEffect;
+}
+
 // ============================================================================
 // UI Components (shadcn/ui inspired)
 // ============================================================================
@@ -182,6 +246,8 @@ const VnInvestmentAnalyzer = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
+  const [vasicekSimulation, setVasicekSimulation] = useState(null);
+  const [isSimulatingVasicek, setIsSimulatingVasicek] = useState(false);
 
   // Investment data
   const initialInvestment = 200000000; // 200M VND
@@ -237,6 +303,43 @@ const VnInvestmentAnalyzer = () => {
     optionC: 40,
   };
 
+  // Calculate Duration and Convexity for each bond
+  const bondAnalytics = useMemo(() => {
+    // Option A: 10-year Government Bond, 4.8% coupon, YTM 5.21%
+    const optionA_macDuration = calculateDuration(0.048, 10, 0.0521, 1);
+    const optionA_modDuration = calculateModifiedDuration(optionA_macDuration, 0.0521, 1);
+    const optionA_convexity = calculateConvexity(0.048, 10, 0.0521, 1);
+
+    // Option B: 7-year Corporate Bond, 8.0% coupon, YTM 7.72%
+    const optionB_macDuration = calculateDuration(0.08, 7, 0.0772, 2);
+    const optionB_modDuration = calculateModifiedDuration(optionB_macDuration, 0.0772, 2);
+    const optionB_convexity = calculateConvexity(0.08, 7, 0.0772, 2);
+
+    // For funds, use approximate duration based on portfolio composition
+    // 80% bonds (avg 5 years), 20% stocks (duration ~0)
+    const optionC_macDuration = 4.0; // Estimated
+    const optionC_modDuration = 4.0 / (1 + 0.09);
+    const optionC_convexity = 20; // Estimated for balanced fund
+
+    return {
+      optionA: {
+        macaulayDuration: optionA_macDuration,
+        modifiedDuration: optionA_modDuration,
+        convexity: optionA_convexity,
+      },
+      optionB: {
+        macaulayDuration: optionB_macDuration,
+        modifiedDuration: optionB_modDuration,
+        convexity: optionB_convexity,
+      },
+      optionC: {
+        macaulayDuration: optionC_macDuration,
+        modifiedDuration: optionC_modDuration,
+        convexity: optionC_convexity,
+      },
+    };
+  }, []);
+
   // Calculate portfolio weighted returns
   const portfolioMetrics = useMemo(() => {
     const weightedNominalReturn = 
@@ -265,7 +368,7 @@ const VnInvestmentAnalyzer = () => {
     { name: 'Fund (C)', value: portfolioAllocation.optionC, fill: '#10b981' },
   ];
 
-  // Monte Carlo Simulation
+  // Monte Carlo Simulation with path tracking
   const runMonteCarloSimulation = () => {
     setIsSimulating(true);
     
@@ -273,6 +376,7 @@ const VnInvestmentAnalyzer = () => {
     setTimeout(() => {
       const trials = 10000;
       const years = 10;
+      const pathsToShow = 100; // Show 100 sample paths for visualization
       
       // Parameters
       const optionC_mean = 0.09; // 9%
@@ -283,13 +387,41 @@ const VnInvestmentAnalyzer = () => {
       
       const optionC_results = [];
       const portfolio_results = [];
+      const optionC_paths = [];
+      const portfolio_paths = [];
       
-      for (let i = 0; i < trials; i++) {
-        // Generate random annual returns for 10 years and compound
+      // First, collect all paths for visualization
+      for (let i = 0; i < Math.min(trials, pathsToShow); i++) {
+        const optionC_path = [{ year: 0, value: initialInvestment }];
+        const portfolio_path = [{ year: 0, value: initialInvestment }];
         let optionC_value = initialInvestment;
         let portfolio_value = initialInvestment;
         
-        for (let year = 0; year < years; year++) {
+        for (let year = 1; year <= years; year++) {
+          // Generate DIFFERENT random returns for each path and year
+          const optionC_return = randomNormal(optionC_mean, optionC_stdDev);
+          const portfolio_return = randomNormal(portfolio_mean, portfolio_stdDev);
+          
+          // Compound the returns
+          optionC_value *= (1 + optionC_return);
+          portfolio_value *= (1 + portfolio_return);
+          
+          optionC_path.push({ year, value: optionC_value });
+          portfolio_path.push({ year, value: portfolio_value });
+        }
+        
+        optionC_paths.push(optionC_path);
+        portfolio_paths.push(portfolio_path);
+        optionC_results.push(optionC_value);
+        portfolio_results.push(portfolio_value);
+      }
+      
+      // Now run remaining trials for statistics (only final value matters)
+      for (let i = pathsToShow; i < trials; i++) {
+        let optionC_value = initialInvestment;
+        let portfolio_value = initialInvestment;
+        
+        for (let year = 1; year <= years; year++) {
           const optionC_return = randomNormal(optionC_mean, optionC_stdDev);
           const portfolio_return = randomNormal(portfolio_mean, portfolio_stdDev);
           
@@ -334,19 +466,32 @@ const VnInvestmentAnalyzer = () => {
       const optionC_histogram = createHistogram(optionC_results, 'Option C', '#10b981');
       const portfolio_histogram = createHistogram(portfolio_results, 'Portfolio', '#3b82f6');
       
+      // Create average path data for line chart
+      const avgPathData = [];
+      for (let year = 0; year <= years; year++) {
+        avgPathData.push({
+          year,
+          optionC_expected: initialInvestment * Math.pow(1 + optionC_mean, year),
+          portfolio_expected: initialInvestment * Math.pow(1 + portfolio_mean, year),
+        });
+      }
+      
       setSimulationResults({
         optionC: {
           p5: getPercentile(optionC_results, 0.05),
           p50: getPercentile(optionC_results, 0.50),
           p95: getPercentile(optionC_results, 0.95),
           histogram: optionC_histogram,
+          paths: optionC_paths,
         },
         portfolio: {
           p5: getPercentile(portfolio_results, 0.05),
           p50: getPercentile(portfolio_results, 0.50),
           p95: getPercentile(portfolio_results, 0.95),
           histogram: portfolio_histogram,
+          paths: portfolio_paths,
         },
+        avgPathData,
       });
       
       setIsSimulating(false);
@@ -643,6 +788,114 @@ Please provide a clear, educational explanation to help understand the calculati
                   </p>
                 </AlertDescription>
               </Alert>
+
+              {/* Question 1: Can individuals buy bonds in Vietnam? */}
+              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900">Question 1: Can Individual Investors Buy Bonds in Vietnam?</CardTitle>
+                  <CardDescription className="text-gray-700">
+                    Detailed regulatory information about bond purchasing in the Vietnamese market
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="prose max-w-none space-y-6">
+                  <p className="text-lg text-gray-800">
+                    Yes, individual (retail) investors can buy bonds in Vietnam, but there is a <strong>very important distinction between Government Bonds and Corporate Bonds</strong>.
+                  </p>
+
+                  {/* Government Bonds Section */}
+                  <div className="bg-white p-6 rounded-lg border border-green-200">
+                    <h5 className="text-xl font-bold text-blue-600 mb-3">1. Government Bonds (e.g., Option A)</h5>
+                    <div className="space-y-3">
+                      <p><strong>Can individuals buy?</strong> <span className="text-green-700 text-lg font-semibold">✅ Yes</span></p>
+                      <p><strong>Description:</strong> These are bonds issued by the Vietnam Ministry of Finance (via the State Treasury) to fund national projects. They are considered the safest investment in Vietnam as they are backed by the full faith and credit of the government.</p>
+                      <div>
+                        <p><strong>How to Buy:</strong></p>
+                        <ul className="list-disc ml-6 space-y-1">
+                          <li><strong>Primary Market:</strong> Individuals typically cannot buy directly at auctions. This is reserved for "bidding members" like large banks and securities firms.</li>
+                          <li><strong>Secondary Market (Most common):</strong> An individual can easily buy government bonds that are already in circulation.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p><strong>Where to Buy:</strong></p>
+                        <ul className="list-disc ml-6 space-y-1">
+                          <li><strong>Securities Companies:</strong> Firms like SSI, VNDirect, Mirae Asset, ACBS, etc., offer government bond trading on their platforms.</li>
+                          <li><strong>Commercial Banks:</strong> Many banks like MSB, BIDV, and Vietcombank facilitate government bond purchases for their individual clients.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Corporate Bonds Section */}
+                  <div className="bg-white p-6 rounded-lg border border-purple-200">
+                    <h5 className="text-xl font-bold text-purple-600 mb-3">2. Corporate Bonds (e.g., Option B)</h5>
+                    <div className="space-y-3">
+                      <p><strong>Can individuals buy?</strong> <span className="text-orange-700 text-lg font-semibold">✅ Yes, through secondary market intermediaries</span></p>
+                      <p><strong>Description:</strong> These are issued by private companies (like VPBank) to raise capital. They offer higher yields because they carry higher credit risk (the risk the company could default).</p>
+                      
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-300">
+                        <p><strong>How to Buy Corporate Bonds:</strong></p>
+                        <p className="mt-2">
+                          While direct purchase of privately placed corporate bonds is restricted to <strong>"Professional Securities Investors"</strong> 
+                          (Decree 153/2020/ND-CP and its amendments), individuals can still buy corporate bonds through secondary market intermediaries.
+                        </p>
+                        <p className="mt-2"><strong>Main channels to buy:</strong></p>
+                        <ul className="list-disc ml-6 mt-2 space-y-1">
+                          <li><strong>Securities Companies:</strong> Via TCBS (Techcom Securities), SSI (Saigon Securities), VPS (VPS Securities), etc. Access their bond offerings through your trading account.</li>
+                          <li><strong>Commercial Banks:</strong> Contact your bank for corporate bond products they distribute to individual investors.</li>
+                          <li><strong>Investment Advisory Firms:</strong> These firms not only act as intermediaries but also provide investment advice and analysis to help you make informed decisions.</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                        <p><strong>Important Notes:</strong></p>
+                        <ul className="list-disc ml-6 mt-2 space-y-1">
+                          <li>Corporate bonds carry higher risk than government bonds - the issuing company could default</li>
+                          <li>Always research the company's financial health before investing</li>
+                          <li>Check the bond's credit rating and understand the terms (coupon rate, maturity, payment frequency)</li>
+                          <li>Diversification is key - don't put all your money in one bond issuer</li>
+                        </ul>
+                      </div>
+
+                      <p className="font-semibold text-purple-700">
+                        <strong>Implication for Ms. An:</strong> Through securities companies like TCBS, SSI, or VPS, Ms. An can access corporate bonds 
+                        on the secondary market. However, due to the higher risk, she should carefully consider her allocation between Options A, B, and C.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bond Funds Section */}
+                  <div className="bg-white p-6 rounded-lg border border-green-200">
+                    <h5 className="text-xl font-bold text-green-600 mb-3">3. Bond Funds (e.g., Option C)</h5>
+                    <div className="space-y-3">
+                      <p><strong>Can individuals buy?</strong> <span className="text-green-700 text-lg font-semibold">✅ Yes</span></p>
+                      <p><strong>Description:</strong> This is the primary way a regular individual investor can gain exposure to a diversified portfolio of corporate and government bonds. A fund (like the TCBF in the case study) pools money from many investors and has a professional manager buy and sell bonds.</p>
+                      <div>
+                        <p><strong>How to Buy:</strong></p>
+                        <ul className="list-disc ml-6 space-y-1">
+                          <li><strong>Fund Management Companies:</strong> Directly from companies like VinaCapital, Dragon Capital, Techcom Capital (TCAM), etc.</li>
+                          <li><strong>Banks & Brokers:</strong> Through distribution partners, such as HSBC, BIDV, or securities apps (like TCInvest for Techcom).</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-blue-600 text-white p-6 rounded-lg">
+                    <h5 className="text-xl font-bold mb-3">Summary for the Case Study</h5>
+                    <p className="text-lg mb-3">
+                      Ms. An has access to all three investment options:
+                    </p>
+                    <ul className="list-disc ml-6 space-y-2">
+                      <li><strong>Option A (Government Bond):</strong> ✅ Can buy directly through securities companies or banks</li>
+                      <li><strong>Option B (Corporate Bond):</strong> ✅ Can buy through secondary market intermediaries (TCBS, SSI, VPS, etc.)</li>
+                      <li><strong>Option C (Bond Fund):</strong> ✅ Can buy from fund management companies or through banks/brokers</li>
+                    </ul>
+                    <p className="text-lg mt-3 font-semibold">
+                      The recommended 20/40/40 portfolio diversification would provide optimal risk-return balance for her investment goals.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
@@ -666,6 +919,7 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableHead>Real Return (CAGR)</TableHead>
                         <TableHead>Current Yield</TableHead>
                         <TableHead>YTM</TableHead>
+                        <TableHead>Duration</TableHead>
                         <TableHead>Risk Level</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -681,6 +935,9 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableCell>{investmentData.optionA.realReturn}%</TableCell>
                         <TableCell>{investmentData.optionA.currentYield}%</TableCell>
                         <TableCell>{investmentData.optionA.ytm}%</TableCell>
+                        <TableCell className="font-semibold text-blue-600">
+                          {bondAnalytics.optionA.macaulayDuration.toFixed(2)} yrs
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
                             {investmentData.optionA.risk}
@@ -698,6 +955,9 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableCell>{investmentData.optionB.realReturn}%</TableCell>
                         <TableCell>{investmentData.optionB.currentYield}%</TableCell>
                         <TableCell>{investmentData.optionB.ytm}%</TableCell>
+                        <TableCell className="font-semibold text-purple-600">
+                          {bondAnalytics.optionB.macaulayDuration.toFixed(2)} yrs
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
                             {investmentData.optionB.risk}
@@ -715,6 +975,9 @@ Please provide a clear, educational explanation to help understand the calculati
                         <TableCell>{investmentData.optionC.realReturn}%</TableCell>
                         <TableCell>{investmentData.optionC.currentYield}%</TableCell>
                         <TableCell>{investmentData.optionC.ytm}%</TableCell>
+                        <TableCell className="font-semibold text-green-600">
+                          {bondAnalytics.optionC.macaulayDuration.toFixed(2)} yrs
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
                             {investmentData.optionC.risk}
@@ -961,6 +1224,115 @@ Please provide a clear, educational explanation to help understand the calculati
 
                     {simulationResults && (
                       <>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Monte Carlo Simulation Paths</CardTitle>
+                            <CardDescription>
+                              100 sample paths from 10,000 simulations showing possible 10-year trajectories
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid md:grid-cols-2 gap-6">
+                              <div>
+                                <h6 className="font-semibold text-sm mb-3 text-center text-green-600">Option C (Fund) - Sample Paths</h6>
+                                <ResponsiveContainer width="100%" height={350}>
+                                  <LineChart>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis 
+                                      type="number"
+                                      dataKey="year" 
+                                      domain={[0, 10]}
+                                      interval="preserveStartEnd"
+                                      label={{ value: 'Year', position: 'insideBottom', offset: -5 }}
+                                    />
+                                    <YAxis 
+                                      tickFormatter={(value) => `₫${(value / 1000000).toFixed(0)}M`}
+                                      label={{ value: 'Portfolio Value', angle: -90, position: 'insideLeft' }}
+                                    />
+                                    <Tooltip 
+                                      formatter={(value) => formatCurrency(value)}
+                                      labelFormatter={(value) => `Year ${value}`}
+                                    />
+                                    {simulationResults.optionC.paths.map((path, idx) => (
+                                      <Line 
+                                        key={idx}
+                                        data={path}
+                                        type="linear" 
+                                        dataKey="value" 
+                                        stroke="#10b981" 
+                                        strokeWidth={0.5}
+                                        opacity={0.2}
+                                        dot={false}
+                                        isAnimationActive={false}
+                                        connectNulls={false}
+                                      />
+                                    ))}
+                                    <Line 
+                                      data={simulationResults.avgPathData}
+                                      type="monotone" 
+                                      dataKey="optionC_expected" 
+                                      stroke="#059669" 
+                                      strokeWidth={3}
+                                      dot={false}
+                                      name="Expected Path"
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                              <div>
+                                <h6 className="font-semibold text-sm mb-3 text-center text-blue-600">Portfolio - Sample Paths</h6>
+                                <ResponsiveContainer width="100%" height={350}>
+                                  <LineChart>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis 
+                                      type="number"
+                                      dataKey="year" 
+                                      domain={[0, 10]}
+                                      interval="preserveStartEnd"
+                                      label={{ value: 'Year', position: 'insideBottom', offset: -5 }}
+                                    />
+                                    <YAxis 
+                                      tickFormatter={(value) => `₫${(value / 1000000).toFixed(0)}M`}
+                                      label={{ value: 'Portfolio Value', angle: -90, position: 'insideLeft' }}
+                                    />
+                                    <Tooltip 
+                                      formatter={(value) => formatCurrency(value)}
+                                      labelFormatter={(value) => `Year ${value}`}
+                                    />
+                                    {simulationResults.portfolio.paths.map((path, idx) => (
+                                      <Line 
+                                        key={idx}
+                                        data={path}
+                                        type="linear" 
+                                        dataKey="value" 
+                                        stroke="#3b82f6" 
+                                        strokeWidth={0.5}
+                                        opacity={0.2}
+                                        dot={false}
+                                        isAnimationActive={false}
+                                        connectNulls={false}
+                                      />
+                                    ))}
+                                    <Line 
+                                      data={simulationResults.avgPathData}
+                                      type="monotone" 
+                                      dataKey="portfolio_expected" 
+                                      stroke="#1d4ed8" 
+                                      strokeWidth={3}
+                                      dot={false}
+                                      name="Expected Path"
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-4 text-center">
+                              Each thin line represents one possible 10-year outcome. The thick line shows the expected (mean) path. 
+                              Notice how the Portfolio paths are tighter (less spread) than Option C, demonstrating lower volatility.
+                            </p>
+                          </CardContent>
+                        </Card>
+
                         <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
                           <CardHeader>
                             <CardTitle className="text-lg">Simulation Results</CardTitle>
@@ -1156,88 +1528,130 @@ Please provide a clear, educational explanation to help understand the calculati
           </TabsContent>
         </Tabs>
 
-        {/* AI Chatbot Button */}
+        {/* AI Chatbot Button - Enhanced UI */}
         <div className="fixed bottom-6 right-6 z-50">
           {!chatOpen ? (
             <Button
               onClick={() => setChatOpen(true)}
-              className="rounded-full w-16 h-16 shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 animate-pulse"
             >
-              <MessageCircle className="w-6 h-6" />
+              <MessageCircle className="w-8 h-8" />
             </Button>
           ) : (
-            <Card className="w-96 h-[600px] flex flex-col shadow-2xl">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+            <Card className="w-[450px] h-[650px] flex flex-col shadow-2xl border-2 border-purple-200">
+              <CardHeader className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white p-4">
                 <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-lg text-white">AI Investment Assistant</CardTitle>
-                    <CardDescription className="text-blue-100 text-xs">Powered by Google Gemini</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                      <MessageCircle className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg text-white">AI Investment Assistant</CardTitle>
+                      <CardDescription className="text-blue-100 text-xs">Powered by Google Gemini 2.0</CardDescription>
+                    </div>
                   </div>
-                  <button onClick={() => setChatOpen(false)} className="text-white hover:bg-white/20 rounded p-1">
+                  <button 
+                    onClick={() => setChatOpen(false)} 
+                    className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                  >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
                 {chatMessages.length === 0 && (
                   <div className="text-center text-gray-500 mt-8">
-                    <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">Ask me anything about the investment calculations!</p>
-                    <div className="mt-4 space-y-2">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 flex items-center justify-center mx-auto mb-4">
+                      <MessageCircle className="w-10 h-10 text-purple-600" />
+                    </div>
+                    <h6 className="font-semibold text-gray-700 mb-2">Ask me anything!</h6>
+                    <p className="text-sm text-gray-500 mb-4">I can help explain investment calculations and concepts</p>
+                    <div className="space-y-2">
                       <button 
-                        onClick={() => sendMessageToGemini("How is the YTM calculated for Option A?")}
-                        className="block w-full text-left p-2 text-xs bg-blue-50 hover:bg-blue-100 rounded"
+                        onClick={() => sendMessageToGemini("How is the YTM calculated for Option A? Show me step by step.")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-blue-50 rounded-lg shadow-sm border border-blue-100 transition-all"
                       >
-                        How is YTM calculated for Option A?
+                        <span className="text-blue-600 font-medium">📊</span> How is YTM calculated for Option A?
                       </button>
                       <button 
-                        onClick={() => sendMessageToGemini("Explain the Monte Carlo simulation")}
-                        className="block w-full text-left p-2 text-xs bg-purple-50 hover:bg-purple-100 rounded"
+                        onClick={() => sendMessageToGemini("Explain the Monte Carlo simulation methodology in detail")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-purple-50 rounded-lg shadow-sm border border-purple-100 transition-all"
                       >
-                        Explain the Monte Carlo simulation
+                        <span className="text-purple-600 font-medium">🎲</span> Explain the Monte Carlo simulation
                       </button>
                       <button 
-                        onClick={() => sendMessageToGemini("Why is the portfolio less risky?")}
-                        className="block w-full text-left p-2 text-xs bg-green-50 hover:bg-green-100 rounded"
+                        onClick={() => sendMessageToGemini("Why is the diversified portfolio less risky than Option C alone?")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-green-50 rounded-lg shadow-sm border border-green-100 transition-all"
                       >
-                        Why is the portfolio less risky?
+                        <span className="text-green-600 font-medium">📈</span> Why is diversification important?
+                      </button>
+                      <button 
+                        onClick={() => sendMessageToGemini("Calculate the real return for each option step by step")}
+                        className="block w-full text-left p-3 text-sm bg-white hover:bg-orange-50 rounded-lg shadow-sm border border-orange-100 transition-all"
+                      >
+                        <span className="text-orange-600 font-medium">💰</span> How do you calculate real returns?
                       </button>
                     </div>
                   </div>
                 )}
                 {chatMessages.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-3 rounded-lg ${
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                    <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm ${
                       msg.role === 'user' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-100 text-gray-800'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-sm' 
+                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
                     }`}>
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      {msg.role === 'assistant' && (
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200">
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">AI</span>
+                          </div>
+                          <span className="text-xs font-semibold text-gray-600">Gemini Assistant</span>
+                        </div>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <p className="text-xs opacity-70 mt-2">
+                        {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
                   </div>
                 ))}
                 {isLoadingResponse && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 p-3 rounded-lg">
-                      <p className="text-sm text-gray-600">Thinking...</p>
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                        <p className="text-sm text-gray-600">AI is thinking...</p>
+                      </div>
                     </div>
                   </div>
                 )}
               </CardContent>
-              <div className="p-4 border-t">
+              <div className="p-4 border-t bg-white">
                 <form onSubmit={handleSendMessage} className="flex gap-2">
                   <input
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask about calculations..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    placeholder="Type your question here..."
+                    className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
                     disabled={isLoadingResponse}
                   />
-                  <Button type="submit" disabled={isLoadingResponse || !inputMessage.trim()}>
-                    <Send className="w-4 h-4" />
+                  <Button 
+                    type="submit" 
+                    disabled={isLoadingResponse || !inputMessage.trim()}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 rounded-xl"
+                  >
+                    <Send className="w-5 h-5" />
                   </Button>
                 </form>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Press Enter to send • Ask anything about investments
+                </p>
               </div>
             </Card>
           )}
