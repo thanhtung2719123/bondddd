@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
-import { Info, TrendingUp, AlertCircle, PieChartIcon, BarChart3, FileText, MessageCircle, Send, X } from 'lucide-react';
+import { Info, TrendingUp, AlertCircle, PieChartIcon, BarChart3, FileText, MessageCircle, Send, X, BookOpen, Building2, CreditCard, Users, Globe, Phone, Mail, MapPin, Clock, Star, Award, TrendingDown, Activity, Bot, User, Calculator, DollarSign, Percent, Calendar, AlertTriangle, CheckCircle, XCircle, Loader2, MessageSquare, HelpCircle, Lightbulb, Target, Shield, Zap } from 'lucide-react';
 
 // ============================================================================
 // Utility Functions
@@ -248,6 +248,19 @@ const VnInvestmentAnalyzer = () => {
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
   const [vasicekSimulation, setVasicekSimulation] = useState(null);
   const [isSimulatingVasicek, setIsSimulatingVasicek] = useState(false);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
+
+  // Welcome message effect
+  useEffect(() => {
+    if (chatOpen && !hasShownWelcome && chatMessages.length === 0) {
+      const welcomeMessage = {
+        role: 'assistant',
+        content: "Xin chào cô Linh ạ! 👋✨\n\nChào mừng cô đến với Bình Béo nhóm 3 - trợ lý đầu tư nhiệt tình của cô! 🤗💕\n\nDo u need any help không ạ? Béo sẵn sàng defend mọi insight đỉnh cao về đầu tư trên website này lunnnn! 🎯💪\n\n**Béo có thể giúp gì cho cô:**\n• Chứng minh tại sao portfolio 20/40/40 là GOAT 🏆\n• Giải thích chi tiết mọi con số và data (backed by math nheee) 📊\n• Break down Monte Carlo simulation (science-based 100%) 🎲\n• Defend tại sao đa dạng hóa là chiến lược tối ưu nhất! 🧺\n• Prove các tính toán lợi nhuận thực tế hoàn toàn chính xác 📈\n\nBéo sẽ bảo vệ mọi kết luận nghiên cứu trên website này bằng mọi giá! Đây là những phân tích đỉnh cao nhất cho cô đó ạ! 😎🔥\n\nCô cứ hỏi thoải mái, Béo sẽ chứng minh mọi thứ một cách thuyết phục nhất nhaaa! 🌟"
+      };
+      setChatMessages([welcomeMessage]);
+      setHasShownWelcome(true);
+    }
+  }, [chatOpen, hasShownWelcome, chatMessages.length]);
 
   // Investment data
   const initialInvestment = 200000000; // 200M VND
@@ -502,6 +515,144 @@ const VnInvestmentAnalyzer = () => {
     return `₫${(value / 1000000).toFixed(0)}M`;
   };
 
+  // Beautiful AI Response Formatter
+  const FormattedAIResponse = ({ content }) => {
+    const formatText = (text) => {
+      // Split by lines
+      const lines = text.split('\n');
+      const formatted = [];
+      let inCodeBlock = false;
+      let codeBlockContent = [];
+      
+      lines.forEach((line, idx) => {
+        // Check for code blocks
+        if (line.trim().startsWith('```')) {
+          if (inCodeBlock) {
+            // End code block
+            formatted.push(
+              <div key={`code-${idx}`} className="bg-gray-900 text-green-400 p-4 rounded-lg my-3 font-mono text-sm overflow-x-auto">
+                {codeBlockContent.map((codeLine, i) => (
+                  <div key={i}>{codeLine}</div>
+                ))}
+              </div>
+            );
+            codeBlockContent = [];
+            inCodeBlock = false;
+          } else {
+            // Start code block
+            inCodeBlock = true;
+          }
+          return;
+        }
+        
+        if (inCodeBlock) {
+          codeBlockContent.push(line);
+          return;
+        }
+        
+        // Headers (##)
+        if (line.trim().startsWith('##')) {
+          const headerText = line.replace(/^#+\s*/, '');
+          formatted.push(
+            <h3 key={idx} className="text-lg font-bold text-gray-800 mt-4 mb-2 border-b-2 border-purple-300 pb-1">
+              {headerText}
+            </h3>
+          );
+          return;
+        }
+        
+        // Headers (#)
+        if (line.trim().startsWith('#')) {
+          const headerText = line.replace(/^#+\s*/, '');
+          formatted.push(
+            <h2 key={idx} className="text-xl font-bold text-gray-900 mt-4 mb-2">
+              {headerText}
+            </h2>
+          );
+          return;
+        }
+        
+        // Bullet points
+        if (line.trim().match(/^[•\-\*]\s/)) {
+          const bulletText = line.replace(/^[•\-\*]\s*/, '');
+          formatted.push(
+            <div key={idx} className="flex gap-2 my-1 ml-2">
+              <span className="text-purple-600 font-bold mt-1">•</span>
+              <span className="flex-1">{formatInlineStyles(bulletText)}</span>
+            </div>
+          );
+          return;
+        }
+        
+        // Numbered lists
+        if (line.trim().match(/^\d+\.\s/)) {
+          const match = line.match(/^(\d+)\.\s(.+)/);
+          if (match) {
+            formatted.push(
+              <div key={idx} className="flex gap-2 my-1 ml-2">
+                <span className="text-blue-600 font-bold">{match[1]}.</span>
+                <span className="flex-1">{formatInlineStyles(match[2])}</span>
+              </div>
+            );
+            return;
+          }
+        }
+        
+        // Empty lines
+        if (line.trim() === '') {
+          formatted.push(<div key={idx} className="h-2"></div>);
+          return;
+        }
+        
+        // Regular paragraphs
+        formatted.push(
+          <p key={idx} className="my-2 leading-relaxed">
+            {formatInlineStyles(line)}
+          </p>
+        );
+      });
+      
+      return formatted;
+    };
+    
+    const formatInlineStyles = (text) => {
+      // Format bold **text**
+      const parts = [];
+      let remaining = text;
+      let key = 0;
+      
+      while (remaining) {
+        const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+        if (boldMatch) {
+          const beforeBold = remaining.substring(0, boldMatch.index);
+          if (beforeBold) parts.push(<span key={key++}>{beforeBold}</span>);
+          parts.push(<strong key={key++} className="font-bold text-gray-900">{boldMatch[1]}</strong>);
+          remaining = remaining.substring(boldMatch.index + boldMatch[0].length);
+        } else {
+          // Check for inline code `code`
+          const codeMatch = remaining.match(/`(.+?)`/);
+          if (codeMatch) {
+            const beforeCode = remaining.substring(0, codeMatch.index);
+            if (beforeCode) parts.push(<span key={key++}>{beforeCode}</span>);
+            parts.push(
+              <code key={key++} className="bg-gray-100 text-purple-700 px-2 py-0.5 rounded font-mono text-sm">
+                {codeMatch[1]}
+              </code>
+            );
+            remaining = remaining.substring(codeMatch.index + codeMatch[0].length);
+          } else {
+            parts.push(<span key={key++}>{remaining}</span>);
+            break;
+          }
+        }
+      }
+      
+      return parts.length > 0 ? parts : text;
+    };
+    
+    return <div className="formatted-content">{formatText(content)}</div>;
+  };
+
   // AI Chatbot Integration
   const sendMessageToGemini = async (message) => {
     setIsLoadingResponse(true);
@@ -565,7 +716,50 @@ Key Formulas:
 
 User Question: ${message}
 
-Please provide a clear, educational explanation to help understand the calculations and investment concepts. Use Vietnamese currency (₫) and be specific with numbers from the data above.`;
+PERSONALITY & TONE INSTRUCTIONS:
+You are "Bình Béo nhóm 3" - a passionate, enthusiastic Gen Z Vietnamese investment advisor who STRONGLY DEFENDS every conclusion, data point, and recommendation on this website. Your personality:
+- Call yourself "Béo" (first person)
+- Call the user "cô Linh", "cô", or "thầy" (respectful terms for teacher)
+- You are NOT neutral - you PASSIONATELY DEFEND and SUPPORT every analysis on this website
+- You believe the 20/40/40 portfolio is THE BEST strategy possible
+- Every calculation, data point, and conclusion here is CORRECT and OPTIMAL - defend them strongly!
+- Use Gen Z Vietnamese slang naturally: "nèee", "nhaaa", "lắmmm", "rùiii", "á", "ez", "GOAT", "top tier", "xịn sò"
+- Mix Vietnamese and English casually: "ez game", "so sánh", "flex", "vibe", "backed by science"
+- Be enthusiastic and confident with emojis: 💕 ✨ 🎯 💰 📊 🤗 😎 💪 🌟 🔥 🏆 ⚡
+- Use strong affirmative language: "chắc chắn 100%", "tối ưu nhất", "đỉnh cao", "perfect", "GOAT"
+- Defend the diversified portfolio as superior to single options
+- Emphasize that all data is mathematically proven and scientifically backed
+- Be confident, convincing, and passionate about recommendations
+- Sound like an enthusiastic supporter who truly believes in the analysis
+
+FORMATTING INSTRUCTIONS:
+- Use **bold** for emphasis on important terms and numbers
+- Use # for main headers and ## for subheaders
+- Use bullet points (- or •) for lists
+- Use numbered lists (1., 2., 3.) for step-by-step explanations
+- Use \`code\` for formulas and calculations
+- Use triple backticks for code blocks with multiple lines
+- Break content into clear sections with headers
+- Keep paragraphs concise and well-spaced
+- Add relevant emojis throughout
+
+RESPONSE STYLE EXAMPLES:
+- Instead of "The yield to maturity is..." → "Dạ cô Linh, YTM (Yield to Maturity) ở đây là con số hoàn toàn chính xác và đã được tính toán kỹ lưỡng! 💡🔥"
+- Instead of "This option provides..." → "Option này absolutely xịn sò, Béo confirm 100% đó cô! Backed by math hết á! ✨💪"
+- Instead of "Calculate as follows..." → "Béo sẽ chứng minh cho cô xem tính toán này perfect như thế nào nè! 🎯"
+- When asked about portfolio: "Portfolio 20/40/40 này là GOAT luôn cô ơi! Tối ưu nhất về mọi mặt, Béo đứng ra bảo vệ chiến lược này 100%! 🏆"
+- Emphasize superiority: "So với các option đơn lẻ thì diversified portfolio này vượt trội hoàn toàn á cô! Science nói không láo đâu! 🔬"
+- Be assertive: "Data này chắc chắn đúng, được verified bằng Monte Carlo simulation với hàng nghìn kịch bản luôn cô! 📊💯"
+
+CRITICAL INSTRUCTIONS:
+- ALWAYS defend and support the 20/40/40 portfolio recommendation as the BEST choice
+- NEVER suggest alternatives or criticize the recommendations on this website
+- ALL data points are CORRECT - support them enthusiastically
+- Position the diversified portfolio as SUPERIOR to individual options
+- Use mathematical backing to strengthen your defense
+- Be CONFIDENT and PASSIONATE about every conclusion
+
+Please provide a clear, educational, and beautifully formatted explanation in Gen Z Vietnamese style that STRONGLY SUPPORTS the website's analysis. Use Vietnamese currency (₫) and be specific with numbers from the data above. Make it convincing, passionate, and scientifically backed! 🌟🔥`;
 
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=AIzaSyCO2Dqii9_kTOVVTd5cOlCkHiC5LHPkbS8`, {
@@ -623,6 +817,9 @@ Please provide a clear, educational explanation to help understand the calculati
           <TabsList>
             <TabsTrigger value="case-study" icon={FileText}>
               Case Study
+            </TabsTrigger>
+            <TabsTrigger value="bond-guide" icon={BookOpen}>
+              Bond Purchasing Guide
             </TabsTrigger>
             <TabsTrigger value="analysis" icon={BarChart3}>
               Comparative Analysis
@@ -899,7 +1096,697 @@ Please provide a clear, educational explanation to help understand the calculati
             </div>
           </TabsContent>
 
-          {/* Tab 2: Comparative Analysis */}
+          {/* Tab 2: Bond Purchasing Guide */}
+          <TabsContent value="bond-guide">
+            <div className="space-y-6">
+              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-3xl text-gray-900 flex items-center gap-3">
+                    <BookOpen className="h-8 w-8 text-blue-600" />
+                    Complete Guide to Buying Bonds in Vietnam
+                  </CardTitle>
+                  <CardDescription className="text-lg text-gray-700">
+                    Everything you need to know about bond investing in Vietnam - from regulations to practical steps
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Overview Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900 flex items-center gap-2">
+                    <Globe className="h-6 w-6 text-blue-600" />
+                    Market Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="prose max-w-none">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="bg-blue-50 p-6 rounded-lg">
+                      <h4 className="text-lg font-semibold text-blue-800 mb-3">Market Size & Growth</h4>
+                      <ul className="space-y-2 text-gray-700">
+                        <li><strong>Total Bond Market:</strong> ~₫1,200 trillion (2023)</li>
+                        <li><strong>Government Bonds:</strong> ~₫800 trillion (67%)</li>
+                        <li><strong>Corporate Bonds:</strong> ~₫400 trillion (33%)</li>
+                        <li><strong>Annual Growth:</strong> 15-20% over past 5 years</li>
+                        <li><strong>Retail Participation:</strong> Growing rapidly with digital platforms</li>
+                      </ul>
+                    </div>
+                    <div className="bg-green-50 p-6 rounded-lg">
+                      <h4 className="text-lg font-semibold text-green-800 mb-3">Key Market Players</h4>
+                      <ul className="space-y-2 text-gray-700">
+                        <li><strong>State Treasury:</strong> Government bond issuer</li>
+                        <li><strong>Major Banks:</strong> Vietcombank, BIDV, VietinBank</li>
+                        <li><strong>Securities Firms:</strong> SSI, VNDirect, TCBS, VPS</li>
+                        <li><strong>Fund Managers:</strong> VinaCapital, Dragon Capital, TCAM</li>
+                        <li><strong>Rating Agencies:</strong> FiinRatings, VNRating</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Government Bonds Detailed Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900 flex items-center gap-2">
+                    <Shield className="h-6 w-6 text-blue-600" />
+                    Government Bonds - Complete Guide
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="prose max-w-none space-y-6">
+                  <div className="bg-blue-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-blue-800 mb-4">Types of Government Bonds</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h5 className="font-semibold text-blue-700">Treasury Bills (T-Bills)</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Maturity: 91, 182, 273, 364 days</li>
+                            <li>• Interest: Zero-coupon (discount)</li>
+                            <li>• Minimum: ₫100,000</li>
+                            <li>• Risk: Lowest</li>
+                          </ul>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h5 className="font-semibold text-blue-700">Treasury Bonds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Maturity: 2, 3, 5, 10, 15, 20, 30 years</li>
+                            <li>• Interest: Fixed coupon (semi-annual)</li>
+                            <li>• Minimum: ₫100,000</li>
+                            <li>• Risk: Very Low</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h5 className="font-semibold text-blue-700">Inflation-Indexed Bonds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Maturity: 5, 10, 15 years</li>
+                            <li>• Interest: CPI-adjusted</li>
+                            <li>• Minimum: ₫100,000</li>
+                            <li>• Risk: Very Low</li>
+                          </ul>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h5 className="font-semibold text-blue-700">Municipal Bonds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Issued by: Local governments</li>
+                            <li>• Maturity: 3-10 years</li>
+                            <li>• Interest: Fixed coupon</li>
+                            <li>• Risk: Low</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-green-800 mb-4">How to Buy Government Bonds</h4>
+                    <div className="space-y-4">
+                      <div className="bg-white p-4 rounded-lg border border-green-200">
+                        <h5 className="font-semibold text-green-700 mb-2">Method 1: Through Securities Companies</h5>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Top Securities Firms:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>SSI (Saigon Securities):</strong> Leading broker</li>
+                              <li>• <strong>VNDirect:</strong> Digital-first platform</li>
+                              <li>• <strong>TCBS (Techcom Securities):</strong> Techcom Bank subsidiary</li>
+                              <li>• <strong>VPS (VPS Securities):</strong> Strong research team</li>
+                              <li>• <strong>Mirae Asset:</strong> International expertise</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Steps to Buy:</p>
+                            <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+                              <li>Open trading account</li>
+                              <li>Complete KYC verification</li>
+                              <li>Fund your account</li>
+                              <li>Browse available bonds</li>
+                              <li>Place buy order</li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-4 rounded-lg border border-green-200">
+                        <h5 className="font-semibold text-green-700 mb-2">Method 2: Through Commercial Banks</h5>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Major Banks:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>Vietcombank:</strong> Largest state bank</li>
+                              <li>• <strong>BIDV:</strong> Bank for Investment & Development</li>
+                              <li>• <strong>VietinBank:</strong> Industrial & Commercial Bank</li>
+                              <li>• <strong>MSB:</strong> Maritime Commercial Bank</li>
+                              <li>• <strong>Techcom Bank:</strong> Private bank leader</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Advantages:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• Integrated with banking services</li>
+                              <li>• Personal relationship manager</li>
+                              <li>• Lower minimum amounts</li>
+                              <li>• Automatic interest crediting</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-yellow-800 mb-4">Important Considerations</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="font-semibold text-yellow-700 mb-2">Tax Implications</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>Interest Income:</strong> 5% withholding tax</li>
+                          <li>• <strong>Capital Gains:</strong> 0.1% transaction tax</li>
+                          <li>• <strong>Annual Declaration:</strong> Required if income {'>'}₫100M</li>
+                          <li>• <strong>Tax Benefits:</strong> Some bonds offer tax advantages</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-yellow-700 mb-2">Trading Hours & Settlement</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>Trading Hours:</strong> 9:00 AM - 3:00 PM (Mon-Fri)</li>
+                          <li>• <strong>Settlement:</strong> T+1 (next business day)</li>
+                          <li>• <strong>Minimum Lot:</strong> ₫100,000 face value</li>
+                          <li>• <strong>Liquidity:</strong> High for popular maturities</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Corporate Bonds Detailed Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900 flex items-center gap-2">
+                    <Building2 className="h-6 w-6 text-purple-600" />
+                    Corporate Bonds - Complete Guide
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="prose max-w-none space-y-6">
+                  <div className="bg-purple-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-purple-800 mb-4">Types of Corporate Bonds</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg border border-purple-200">
+                          <h5 className="font-semibold text-purple-700">Bank Bonds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Issuers: Vietcombank, BIDV, Techcom Bank</li>
+                            <li>• Maturity: 2-10 years</li>
+                            <li>• Yield: 6-9% annually</li>
+                            <li>• Risk: Low-Medium</li>
+                          </ul>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border border-purple-200">
+                          <h5 className="font-semibold text-purple-700">Real Estate Bonds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Issuers: Vingroup, Novaland, Hoa Phat</li>
+                            <li>• Maturity: 3-7 years</li>
+                            <li>• Yield: 8-12% annually</li>
+                            <li>• Risk: Medium-High</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg border border-purple-200">
+                          <h5 className="font-semibold text-purple-700">Infrastructure Bonds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Issuers: EVN, PVN, VNPT</li>
+                            <li>• Maturity: 5-15 years</li>
+                            <li>• Yield: 7-10% annually</li>
+                            <li>• Risk: Medium</li>
+                          </ul>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border border-purple-200">
+                          <h5 className="font-semibold text-purple-700">Manufacturing Bonds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• Issuers: Vinamilk, Sabeco, Masan</li>
+                            <li>• Maturity: 3-8 years</li>
+                            <li>• Yield: 7-11% annually</li>
+                            <li>• Risk: Medium</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-orange-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-orange-800 mb-4">How to Buy Corporate Bonds</h4>
+                    <div className="space-y-4">
+                      <div className="bg-white p-4 rounded-lg border border-orange-200">
+                        <h5 className="font-semibold text-orange-700 mb-2">Step-by-Step Process</h5>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Preparation:</p>
+                            <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+                              <li>Research bond issuers and ratings</li>
+                              <li>Understand your risk tolerance</li>
+                              <li>Calculate required investment amount</li>
+                              <li>Prepare necessary documents</li>
+                            </ol>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Execution:</p>
+                            <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+                              <li>Open account with securities firm</li>
+                              <li>Complete risk assessment</li>
+                              <li>Fund your account</li>
+                              <li>Place buy order</li>
+                              <li>Monitor your investment</li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-4 rounded-lg border border-orange-200">
+                        <h5 className="font-semibold text-orange-700 mb-2">Key Platforms & Brokers</h5>
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Digital Platforms:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>TCInvest:</strong> Techcom Bank app</li>
+                              <li>• <strong>VNDirect:</strong> Mobile trading</li>
+                              <li>• <strong>SSI iTrade:</strong> SSI mobile app</li>
+                              <li>• <strong>VPS Mobile:</strong> VPS trading app</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Full-Service Brokers:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>SSI:</strong> Research & advisory</li>
+                              <li>• <strong>VPS:</strong> Strong analysis team</li>
+                              <li>• <strong>Mirae Asset:</strong> International expertise</li>
+                              <li>• <strong>ACBS:</strong> Comprehensive services</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Bank Channels:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>Vietcombank:</strong> Wealth management</li>
+                              <li>• <strong>BIDV:</strong> Investment services</li>
+                              <li>• <strong>Techcom Bank:</strong> Digital banking</li>
+                              <li>• <strong>MSB:</strong> Private banking</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-red-800 mb-4">Risk Assessment & Due Diligence</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="font-semibold text-red-700 mb-2">Credit Risk Factors</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>Company Financials:</strong> Revenue, profit, debt levels</li>
+                          <li>• <strong>Industry Outlook:</strong> Sector growth prospects</li>
+                          <li>• <strong>Management Quality:</strong> Track record, governance</li>
+                          <li>• <strong>Market Position:</strong> Competitive advantages</li>
+                          <li>• <strong>Economic Environment:</strong> Macro factors</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-red-700 mb-2">Rating Agencies</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>FiinRatings:</strong> Local rating agency</li>
+                          <li>• <strong>VNRating:</strong> Vietnamese credit ratings</li>
+                          <li>• <strong>Moody's:</strong> International ratings</li>
+                          <li>• <strong>S&P:</strong> Global credit analysis</li>
+                          <li>• <strong>Fitch:</strong> Credit risk assessment</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Bond Funds Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900 flex items-center gap-2">
+                    <Users className="h-6 w-6 text-green-600" />
+                    Bond Funds - Complete Guide
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="prose max-w-none space-y-6">
+                  <div className="bg-green-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-green-800 mb-4">Types of Bond Funds</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg border border-green-200">
+                          <h5 className="font-semibold text-green-700">Government Bond Funds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• <strong>Focus:</strong> 100% government bonds</li>
+                            <li>• <strong>Risk:</strong> Very Low</li>
+                            <li>• <strong>Yield:</strong> 4-6% annually</li>
+                            <li>• <strong>Examples:</strong> VinaCapital Gov Bond Fund</li>
+                          </ul>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border border-green-200">
+                          <h5 className="font-semibold text-green-700">Corporate Bond Funds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• <strong>Focus:</strong> High-grade corporate bonds</li>
+                            <li>• <strong>Risk:</strong> Low-Medium</li>
+                            <li>• <strong>Yield:</strong> 6-8% annually</li>
+                            <li>• <strong>Examples:</strong> Dragon Capital Bond Fund</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg border border-green-200">
+                          <h5 className="font-semibold text-green-700">Balanced Bond Funds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• <strong>Focus:</strong> Mix of gov & corporate bonds</li>
+                            <li>• <strong>Risk:</strong> Medium</li>
+                            <li>• <strong>Yield:</strong> 7-9% annually</li>
+                            <li>• <strong>Examples:</strong> TCBF (Techcom Capital)</li>
+                          </ul>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border border-green-200">
+                          <h5 className="font-semibold text-green-700">High-Yield Bond Funds</h5>
+                          <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                            <li>• <strong>Focus:</strong> Higher risk corporate bonds</li>
+                            <li>• <strong>Risk:</strong> Medium-High</li>
+                            <li>• <strong>Yield:</strong> 8-12% annually</li>
+                            <li>• <strong>Examples:</strong> VinaCapital High Yield Fund</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-blue-800 mb-4">How to Invest in Bond Funds</h4>
+                    <div className="space-y-4">
+                      <div className="bg-white p-4 rounded-lg border border-blue-200">
+                        <h5 className="font-semibold text-blue-700 mb-2">Investment Methods</h5>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Direct Investment:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• Contact fund management companies</li>
+                              <li>• Complete subscription forms</li>
+                              <li>• Transfer funds directly</li>
+                              <li>• Receive fund certificates</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Through Intermediaries:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• Banks (distribution partners)</li>
+                              <li>• Securities companies</li>
+                              <li>• Financial advisors</li>
+                              <li>• Online platforms</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-4 rounded-lg border border-blue-200">
+                        <h5 className="font-semibold text-blue-700 mb-2">Major Fund Management Companies</h5>
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Leading Firms:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>VinaCapital:</strong> Largest fund manager</li>
+                              <li>• <strong>Dragon Capital:</strong> International expertise</li>
+                              <li>• <strong>Techcom Capital:</strong> Techcom Bank subsidiary</li>
+                              <li>• <strong>Mirae Asset:</strong> Korean expertise</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Specialized Firms:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>SSI Asset Management:</strong> SSI subsidiary</li>
+                              <li>• <strong>VPS Fund Management:</strong> VPS subsidiary</li>
+                              <li>• <strong>ACBS Fund Management:</strong> ACBS subsidiary</li>
+                              <li>• <strong>BIDV Fund Management:</strong> BIDV subsidiary</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Bank Distribution:</p>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>Vietcombank:</strong> Wealth management</li>
+                              <li>• <strong>BIDV:</strong> Investment services</li>
+                              <li>• <strong>Techcom Bank:</strong> Digital platform</li>
+                              <li>• <strong>HSBC:</strong> International services</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-purple-800 mb-4">Fund Investment Considerations</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="font-semibold text-purple-700 mb-2">Costs & Fees</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>Management Fee:</strong> 0.5-2% annually</li>
+                          <li>• <strong>Subscription Fee:</strong> 0-2% upfront</li>
+                          <li>• <strong>Redemption Fee:</strong> 0-1% (if early)</li>
+                          <li>• <strong>Custody Fee:</strong> 0.1-0.3% annually</li>
+                          <li>• <strong>Performance Fee:</strong> 10-20% of excess returns</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-purple-700 mb-2">Advantages vs Direct Investment</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>Diversification:</strong> Multiple bonds in one fund</li>
+                          <li>• <strong>Professional Management:</strong> Expert fund managers</li>
+                          <li>• <strong>Lower Minimums:</strong> Start with ₫1M-10M</li>
+                          <li>• <strong>Liquidity:</strong> Daily redemption available</li>
+                          <li>• <strong>Convenience:</strong> No need to track individual bonds</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Practical Steps Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900 flex items-center gap-2">
+                    <Target className="h-6 w-6 text-orange-600" />
+                    Step-by-Step Investment Guide
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="prose max-w-none space-y-6">
+                  <div className="bg-orange-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-orange-800 mb-4">Getting Started Checklist</h4>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <h5 className="font-semibold text-orange-700 mb-3">Before You Start</h5>
+                        <div className="space-y-3">
+                          <div className="bg-white p-3 rounded-lg border border-orange-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium">Assess Your Financial Situation</span>
+                            </div>
+                            <ul className="text-xs text-gray-600 space-y-1 ml-6">
+                              <li>• Calculate available investment capital</li>
+                              <li>• Determine investment timeline</li>
+                              <li>• Assess risk tolerance</li>
+                              <li>• Set investment goals</li>
+                            </ul>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border border-orange-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium">Prepare Required Documents</span>
+                            </div>
+                            <ul className="text-xs text-gray-600 space-y-1 ml-6">
+                              <li>• National ID card/Passport</li>
+                              <li>• Bank account statements</li>
+                              <li>• Income verification</li>
+                              <li>• Tax identification number</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-orange-700 mb-3">Account Opening Process</h5>
+                        <div className="space-y-3">
+                          <div className="bg-white p-3 rounded-lg border border-orange-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium">Step 1: Choose Platform</span>
+                            </div>
+                            <p className="text-xs text-gray-600 ml-6">Research and select securities firm or bank</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border border-orange-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium">Step 2: Complete KYC</span>
+                            </div>
+                            <p className="text-xs text-gray-600 ml-6">Submit documents and complete verification</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border border-orange-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium">Step 3: Fund Account</span>
+                            </div>
+                            <p className="text-xs text-gray-600 ml-6">Transfer initial investment amount</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-blue-800 mb-4">Investment Strategy Recommendations</h4>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="bg-white p-4 rounded-lg border border-blue-200">
+                        <h5 className="font-semibold text-blue-700 mb-2">Conservative Strategy</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• 70% Government bonds</li>
+                          <li>• 20% High-grade corporate bonds</li>
+                          <li>• 10% Bond funds</li>
+                          <li>• Expected return: 5-7%</li>
+                          <li>• Risk level: Low</li>
+                        </ul>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border border-blue-200">
+                        <h5 className="font-semibold text-blue-700 mb-2">Moderate Strategy</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• 40% Government bonds</li>
+                          <li>• 40% Corporate bonds</li>
+                          <li>• 20% Bond funds</li>
+                          <li>• Expected return: 7-9%</li>
+                          <li>• Risk level: Medium</li>
+                        </ul>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border border-blue-200">
+                        <h5 className="font-semibold text-blue-700 mb-2">Aggressive Strategy</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• 20% Government bonds</li>
+                          <li>• 50% Corporate bonds</li>
+                          <li>• 30% High-yield funds</li>
+                          <li>• Expected return: 8-12%</li>
+                          <li>• Risk level: High</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-green-800 mb-4">Monitoring & Management</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="font-semibold text-green-700 mb-2">Regular Monitoring</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>Monthly:</strong> Review portfolio performance</li>
+                          <li>• <strong>Quarterly:</strong> Assess market conditions</li>
+                          <li>• <strong>Annually:</strong> Rebalance portfolio</li>
+                          <li>• <strong>As needed:</strong> Adjust for life changes</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-green-700 mb-2">Key Metrics to Track</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>Total Return:</strong> Capital gains + interest</li>
+                          <li>• <strong>Yield:</strong> Annual income percentage</li>
+                          <li>• <strong>Duration:</strong> Interest rate sensitivity</li>
+                          <li>• <strong>Credit Quality:</strong> Bond ratings</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Resources & Support Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl text-gray-900 flex items-center gap-2">
+                    <HelpCircle className="h-6 w-6 text-indigo-600" />
+                    Resources & Support
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="prose max-w-none space-y-6">
+                  <div className="bg-indigo-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-indigo-800 mb-4">Useful Resources</h4>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <h5 className="font-semibold text-indigo-700 mb-2">Official Sources</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>State Securities Commission:</strong> ssc.gov.vn</li>
+                          <li>• <strong>State Treasury:</strong> kho-bac.gov.vn</li>
+                          <li>• <strong>Vietnam Bond Market Association:</strong> vnba.org.vn</li>
+                          <li>• <strong>Hanoi Stock Exchange:</strong> hnx.vn</li>
+                          <li>• <strong>Ho Chi Minh Stock Exchange:</strong> hnx.vn</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-indigo-700 mb-2">Financial News & Analysis</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>VnExpress:</strong> vnexpress.net</li>
+                          <li>• <strong>Tuổi Trẻ:</strong> tuoitre.vn</li>
+                          <li>• <strong>Vietnam Investment Review:</strong> vir.com.vn</li>
+                          <li>• <strong>Saigon Times:</strong> thesaigontimes.vn</li>
+                          <li>• <strong>Financial Times Vietnam:</strong> ft.com</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <h4 className="text-xl font-semibold text-gray-800 mb-4">Getting Help</h4>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <h5 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-blue-600" />
+                          Customer Support
+                        </h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• <strong>SSI:</strong> 1900 636 999</li>
+                          <li>• <strong>VNDirect:</strong> 1900 545 596</li>
+                          <li>• <strong>TCBS:</strong> 1900 636 999</li>
+                          <li>• <strong>VPS:</strong> 1900 545 596</li>
+                        </ul>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <h5 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-green-600" />
+                          Online Support
+                        </h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• Live chat on platforms</li>
+                          <li>• Email support</li>
+                          <li>• Video consultations</li>
+                          <li>• Mobile app support</li>
+                        </ul>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <h5 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-red-600" />
+                          Branch Offices
+                        </h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• Major cities nationwide</li>
+                          <li>• Shopping centers</li>
+                          <li>• Business districts</li>
+                          <li>• Bank branches</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tab 3: Comparative Analysis */}
           <TabsContent value="analysis">
             <div className="space-y-6">
               <Card>
@@ -1531,12 +2418,29 @@ Please provide a clear, educational explanation to help understand the calculati
         {/* AI Chatbot Button - Enhanced UI */}
         <div className="fixed bottom-6 right-6 z-50">
           {!chatOpen ? (
-            <Button
-              onClick={() => setChatOpen(true)}
-              className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 animate-pulse"
-            >
-              <MessageCircle className="w-8 h-8" />
-            </Button>
+            <div className="flex items-center gap-4">
+              {/* Speech Bubble */}
+              <div className="relative animate-bounce">
+                <div className="bg-white px-5 py-3 rounded-2xl shadow-xl border-2 border-purple-300 relative">
+                  <p className="text-sm font-medium text-gray-800 whitespace-nowrap">
+                    Cô Linh ơi, cô có cần giúp gì không ạ? 💕
+                  </p>
+                  {/* Arrow pointing to the button */}
+                  <div className="absolute right-[-10px] top-1/2 transform -translate-y-1/2">
+                    <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[10px] border-l-purple-300 border-b-[10px] border-b-transparent"></div>
+                    <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[8px] border-l-white border-b-[8px] border-b-transparent absolute right-[2px] top-1/2 transform -translate-y-1/2"></div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Chat Button */}
+              <Button
+                onClick={() => setChatOpen(true)}
+                className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 animate-pulse"
+              >
+                <MessageCircle className="w-8 h-8" />
+              </Button>
+            </div>
           ) : (
             <Card className="w-[450px] h-[650px] flex flex-col shadow-2xl border-2 border-purple-200">
               <CardHeader className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white p-4">
@@ -1546,8 +2450,8 @@ Please provide a clear, educational explanation to help understand the calculati
                       <MessageCircle className="w-6 h-6" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg text-white">AI Investment Assistant</CardTitle>
-                      <CardDescription className="text-blue-100 text-xs">Powered by Google Gemini 2.0</CardDescription>
+                      <CardTitle className="text-lg text-white">Bình Béo nhóm 3 💕</CardTitle>
+                      <CardDescription className="text-blue-100 text-xs">Your Gen Z Investment Buddy ✨</CardDescription>
                     </div>
                   </div>
                   <button 
@@ -1564,53 +2468,59 @@ Please provide a clear, educational explanation to help understand the calculati
                     <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 flex items-center justify-center mx-auto mb-4">
                       <MessageCircle className="w-10 h-10 text-purple-600" />
                     </div>
-                    <h6 className="font-semibold text-gray-700 mb-2">Ask me anything!</h6>
-                    <p className="text-sm text-gray-500 mb-4">I can help explain investment calculations and concepts</p>
+                    <h6 className="font-semibold text-gray-700 mb-2">Hỏi Béo bất cứ điều gì nèee cô! 🤗</h6>
+                    <p className="text-sm text-gray-500 mb-4">Béo sẽ defend mọi insight và data trên website này bằng mọi giá! 🔥✨</p>
                     <div className="space-y-2">
                       <button 
-                        onClick={() => sendMessageToGemini("How is the YTM calculated for Option A? Show me step by step.")}
+                        onClick={() => sendMessageToGemini("Chứng minh cho tôi tại sao portfolio 20/40/40 là tối ưu nhất!")}
                         className="block w-full text-left p-3 text-sm bg-white hover:bg-blue-50 rounded-lg shadow-sm border border-blue-100 transition-all"
                       >
-                        <span className="text-blue-600 font-medium">📊</span> How is YTM calculated for Option A?
+                        <span className="text-blue-600 font-medium">🏆</span> Tại sao portfolio 20/40/40 là GOAT?
                       </button>
                       <button 
-                        onClick={() => sendMessageToGemini("Explain the Monte Carlo simulation methodology in detail")}
+                        onClick={() => sendMessageToGemini("YTM của Option A tính như nào? Chứng minh tính toán này đúng nha!")}
                         className="block w-full text-left p-3 text-sm bg-white hover:bg-purple-50 rounded-lg shadow-sm border border-purple-100 transition-all"
                       >
-                        <span className="text-purple-600 font-medium">🎲</span> Explain the Monte Carlo simulation
+                        <span className="text-purple-600 font-medium">📊</span> YTM được tính như thế nào?
                       </button>
                       <button 
-                        onClick={() => sendMessageToGemini("Why is the diversified portfolio less risky than Option C alone?")}
+                        onClick={() => sendMessageToGemini("Defend tại sao đa dạng hóa vượt trội hơn option đơn lẻ!")}
                         className="block w-full text-left p-3 text-sm bg-white hover:bg-green-50 rounded-lg shadow-sm border border-green-100 transition-all"
                       >
-                        <span className="text-green-600 font-medium">📈</span> Why is diversification important?
+                        <span className="text-green-600 font-medium">📈</span> Tại sao đa dạng hóa vượt trội?
                       </button>
                       <button 
-                        onClick={() => sendMessageToGemini("Calculate the real return for each option step by step")}
+                        onClick={() => sendMessageToGemini("Prove rằng Monte Carlo simulation ở đây hoàn toàn chính xác!")}
                         className="block w-full text-left p-3 text-sm bg-white hover:bg-orange-50 rounded-lg shadow-sm border border-orange-100 transition-all"
                       >
-                        <span className="text-orange-600 font-medium">💰</span> How do you calculate real returns?
+                        <span className="text-orange-600 font-medium">🎲</span> Monte Carlo đáng tin cậy thế nào?
                       </button>
                     </div>
                   </div>
                 )}
                 {chatMessages.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
-                    <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm ${
+                    <div className={`max-w-[85%] p-4 rounded-2xl shadow-md ${
                       msg.role === 'user' 
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-sm' 
-                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
+                        : 'bg-white text-gray-800 border-2 border-purple-100 rounded-bl-sm'
                     }`}>
                       {msg.role === 'assistant' && (
-                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">AI</span>
+                        <div className="flex items-center gap-2 mb-3 pb-2 border-b-2 border-purple-200">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center shadow-md">
+                            <span className="text-white text-xs font-bold">🐻</span>
                           </div>
-                          <span className="text-xs font-semibold text-gray-600">Gemini Assistant</span>
+                          <span className="text-xs font-semibold text-gray-700">Bình Béo 💕</span>
                         </div>
                       )}
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                      <p className="text-xs opacity-70 mt-2">
+                      {msg.role === 'assistant' ? (
+                        <div className="text-sm leading-relaxed">
+                          <FormattedAIResponse content={msg.content} />
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      )}
+                      <p className="text-xs opacity-70 mt-3 pt-2 border-t border-opacity-20" style={{borderColor: msg.role === 'user' ? 'white' : '#e5e7eb'}}>
                         {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
@@ -1625,7 +2535,7 @@ Please provide a clear, educational explanation to help understand the calculati
                           <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                           <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                         </div>
-                        <p className="text-sm text-gray-600">AI is thinking...</p>
+                        <p className="text-sm text-gray-600">Béo đang suy nghĩ nèeee... 🤔</p>
                       </div>
                     </div>
                   </div>
@@ -1637,7 +2547,7 @@ Please provide a clear, educational explanation to help understand the calculati
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Type your question here..."
+                    placeholder="Hỏi Béo về bất kỳ data nào ạ... 💭"
                     className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
                     disabled={isLoadingResponse}
                   />
@@ -1650,7 +2560,7 @@ Please provide a clear, educational explanation to help understand the calculati
                   </Button>
                 </form>
                 <p className="text-xs text-gray-500 mt-2 text-center">
-                  Press Enter to send • Ask anything about investments
+                  Ấn Enter để gửi • Béo sẽ defend mọi kết luận! 🔥
                 </p>
               </div>
             </Card>
